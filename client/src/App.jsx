@@ -10,6 +10,8 @@ import Profile from './pages/Profile'
 import Cart from './pages/Cart'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminProducts from './pages/admin/AdminProducts'
+import LandingPage from './pages/LandingPage'
+
 
 function App() {
   return (
@@ -19,7 +21,8 @@ function App() {
           <Navbar />
           <main className='container mx-auto px-4 py-8'>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/products" element={<Products />} />
