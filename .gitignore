@@ -1,6 +1,6 @@
 #modules
 node_modules
-prisma
+*prisam
 
 # Keep environment variables out of version control
 .env
