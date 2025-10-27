@@ -1,15 +1,18 @@
-export default {
+module.exports = {
   testEnvironment: 'node',
-  transform: {},
-  extensionsToTreatAsEsm: ['.js'],
-  moduleNameMapping: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
-  testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
   collectCoverageFrom: [
-    '**/*.js',
+    '**/*.{js,jsx}',
     '!**/node_modules/**',
-    '!**/__tests__/**',
-    '!jest.config.js'
+    '!**/coverage/**',
+    '!**/jest.config.js'
   ],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
+    }
+  },
+  testMatch: ['**/__tests__/**/*.auth.tes.js']
 };

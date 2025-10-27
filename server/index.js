@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import adminRoutes from './routes/admin.js';
+import landingRoutes from './routes/landing.js'
 
 
 // Import middleware
@@ -39,12 +40,12 @@ app.use(express.json());
 // Track visitor middleware
 app.use(trackVisitor);
 
-// Routes
+// Rute
 app.use('/api', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/auth/status', getAuthStatus)
-
+app.use('/api/landing', landingRoutes);
 
 // handling middleware
 app.use((err, req, res, next) => {

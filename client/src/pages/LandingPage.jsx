@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Rupiah} from '../utils/Currency'
-import { 
-  ShoppingBag, 
-  Truck, 
-  Shield, 
-  Star, 
+import { Rupiah } from '../utils/Currency'
+import {
+  ShoppingBag,
+  Truck,
+  Shield,
+  Star,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -17,107 +17,60 @@ import axios from 'axios'
 
 const LandingPage = () => {
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const [heroSlides, setHeroSlides] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const { user } = useAuth()
 
-  // Categories untuk filter
-  const categories = [
-    { id: 'all', name: 'All Products' },
-    { id: 'Smartphone', name: 'Smartphone' },
-    { id: 'Laptop', name: 'Laptop' },
-    { id: 'Tablet', name: 'Tablet' },
-    { id: 'Accessories', name: 'Accessories' }
-  ]
-
-  // Hero slides
-  const heroSlides = [
-    {
-      id: 1,
-      title: "Latest Technology",
-      description: "Discover the newest gadgets and devices",
-      image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-      buttonText: "Shop Now"
-    },
-    {
-      id: 2,
-      title: "Amazing Deals",
-      description: "Get the best prices on premium products",
-      image: "https://images.unsplash.com/photo-1556656793-08538906a9f8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-      buttonText: "View Deals"
-    },
-    {
-      id: 3,
-      title: "Free Shipping",
-      description: "Free delivery on orders over Rp 500.000",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-      buttonText: "Learn More"
-    }
-  ]
-
   useEffect(() => {
-    fetchFeaturedProducts()
+    fetchLandingData()
   }, [])
 
   // Auto slide hero
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroSlides.length)
-    }, 5000)
-    return () => clearInterval(interval)
+    if (heroSlides.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % heroSlides.length)
+      }, 5000)
+      return () => clearInterval(interval)
+    }
   }, [heroSlides.length])
 
-  const fetchFeaturedProducts = async () => {
+  const fetchLandingData = async () => {
     try {
-      const response = await axios.get('/api/products')
-      setFeaturedProducts(response.data.slice(0, 8)) // Ambil 8 produk pertama
-    } catch (error) {
-      console.error('Error fetching products:', error)
-      // Fallback mock data
-      setFeaturedProducts([
-        {
-          id: 1,
-          name: "Samsung Galaxy S24 Ultra",
-          description: "Flagship smartphone dengan layar Dynamic AMOLED 2X, chipset Snapdragon 8 Gen 3, dan kamera 200MP",
-          price: 18999000,
-          image: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-          category: "Smartphone",
-          rating: 4.8
-        },
-        {
-          id: 2,
-          name: "iPhone 15 Pro",
-          description: "iPhone terbaru dengan chip A17 Pro, desain titanium, dan kamera profesional",
-          price: 21999000,
-          image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-          category: "Smartphone",
-          rating: 4.9
-        },
-        {
-          id: 3,
-          name: "MacBook Pro 16",
-          description: "Laptop profesional dengan chip M3, layar Liquid Retina XDR, dan performa maksimal",
-          price: 34999000,
-          image: "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-          category: "Laptop",
-          rating: 4.7
-        },
-        {
-          id: 4,
-          name: "iPad Air",
-          description: "Tablet serbaguna dengan chip M1, layar Liquid Retina, dan support Apple Pencil",
-          price: 12999000,
-          image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-          category: "Tablet",
-          rating: 4.6
-        }
+      setLoading(true)
+
+      // Fetch semua data secara parallel
+      const [productsResponse, slidesResponse, categoriesResponse] = await Promise.all([
+        axios.get('/api/landing/featured-products'),
+        axios.get('/api/landing/hero-slides'),
+        axios.get('/api/landing/categories')
       ])
+
+      setFeaturedProducts(productsResponse.data)
+      setHeroSlides(slidesResponse.data)
+      setCategories(categoriesResponse.data)
+
+    } catch (error) {
+      console.error('Error fetching landing data:', error)
+      // Fallback ke mock data jika API error
+      setFeaturedProducts(getMockProducts())
+      setHeroSlides(getMockSlides())
+      setCategories(getMockCategories())
     } finally {
       setLoading(false)
     }
   }
+
+  const getMockCategories = () => [
+    { id: 'all', name: 'All Products', count: 8 },
+    { id: 'Smartphone', name: 'Smartphone', count: 4 },
+    { id: 'Laptop', name: 'Laptop', count: 2 },
+    { id: 'Tablet', name: 'Tablet', count: 2 }
+  ]
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length)
@@ -129,7 +82,7 @@ const LandingPage = () => {
 
   const filteredProducts = featuredProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      product.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
     return matchesSearch && matchesCategory
   })
@@ -164,9 +117,8 @@ const LandingPage = () => {
         {heroSlides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentSlide ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'
+              }`}
           >
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -182,7 +134,7 @@ const LandingPage = () => {
                   {slide.description}
                 </p>
                 <Link
-                  to={user ? "/products" : "/register"}
+                  to={slide.buttonLink || (user ? "/products" : "/register")}
                   className="inline-flex items-center bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition duration-200 transform hover:scale-105 animate-fade-in-up"
                 >
                   {slide.buttonText}
@@ -192,33 +144,38 @@ const LandingPage = () => {
             </div>
           </div>
         ))}
-        
+
         {/* Navigation Arrows */}
-        <button
-          onClick={prevSlide}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition duration-200"
-        >
-          <ChevronLeft className="h-6 w-6 text-white" />
-        </button>
-        <button
-          onClick={nextSlide}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition duration-200"
-        >
-          <ChevronRight className="h-6 w-6 text-white" />
-        </button>
+        {heroSlides.length > 1 && (
+          <>
+            <button
+              onClick={prevSlide}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition duration-200"
+            >
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition duration-200"
+            >
+              <ChevronRight className="h-6 w-6 text-white" />
+            </button>
+          </>
+        )}
 
         {/* Dots Indicator */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-          {heroSlides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
-              className={`w-3 h-3 rounded-full transition duration-200 ${
-                index === currentSlide ? 'bg-white' : 'bg-white bg-opacity-50'
-              }`}
-            />
-          ))}
-        </div>
+        {heroSlides.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+            {heroSlides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSlide(index)}
+                className={`w-3 h-3 rounded-full transition duration-200 ${index === currentSlide ? 'bg-white' : 'bg-white bg-opacity-50'
+                  }`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Features Section */}
@@ -244,14 +201,6 @@ const LandingPage = () => {
       {/* Featured Products Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Featured Products
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Discover our carefully selected range of premium products with the best quality and prices
-            </p>
-          </div>
 
           {/* Search and Filter */}
           <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-center">
@@ -265,7 +214,7 @@ const LandingPage = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Filter className="h-5 w-5 text-gray-400" />
               <select
@@ -275,7 +224,7 @@ const LandingPage = () => {
               >
                 {categories.map(category => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {category.name} ({category.count})
                   </option>
                 ))}
               </select>
@@ -300,39 +249,42 @@ const LandingPage = () => {
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full object-cover transition duration-300 hover:scale-105"
+                        onError={(e) => {
+                          e.target.src = "https://via.placeholder.com/300x200?text=No+Image"
+                        }}
                       />
-                      {product.rating && (
-                        <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full px-2 py-1 flex items-center text-sm">
-                          <Star className="h-3 w-3 text-yellow-400 fill-current mr-1" />
-                          {product.rating}
+                      {product.stock === 0 && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                          Out of Stock
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="p-4">
                       <div className="mb-2">
                         <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                           {product.category}
                         </span>
                       </div>
-                      
+
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                         {product.name}
                       </h3>
-                      
+
                       <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                         {product.description}
                       </p>
-                      
+
                       <div className="flex justify-between items-center">
                         <span className="text-2xl font-bold text-green-600">
                           {Rupiah(product.price)}
                         </span>
                         <Link
                           to={user ? "/products" : "/register"}
-                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium"
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={product.stock === 0}
                         >
-                          View Details
+                          {product.stock === 0 ? 'Out of Stock' : 'View Details'}
                         </Link>
                       </div>
                     </div>
@@ -376,7 +328,7 @@ const LandingPage = () => {
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
             Subscribe to our newsletter and get the latest updates on new products and exclusive offers
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+          <div className="flex flex-col sm:flexRow gap-4 justify-center max-w-md mx-auto">
             <input
               type="email"
               placeholder="Enter your email"
