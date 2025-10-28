@@ -15,6 +15,7 @@ import { getUsers } from '../controllers/userController.js';
 import { getDashboardStats } from '../controllers/dashboardController.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validate, productSchema } from '../middleware/validation.js';
+import { getAuditLogs } from '../controllers/auditController.js';
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ router.get('/hero-slides', requireAuth, requireAdmin, getHeroSlides);
 router.post('/hero-slides', requireAuth, requireAdmin, createHeroSlide);
 router.put('/hero-slides/:id', requireAuth, requireAdmin, updateHeroSlide);
 router.delete('/hero-slides/:id', requireAuth, requireAdmin, deleteHeroSlide);
+
+//rute auditlog
+router.get('/audit-logs', requireAuth, requireAdmin, getAuditLogs)
 
 // Order Management
 router.get('/orders', requireAuth, requireAdmin, getOrders);

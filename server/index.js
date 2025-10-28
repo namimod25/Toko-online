@@ -9,7 +9,6 @@ import productRoutes from './routes/products.js';
 import adminRoutes from './routes/admin.js';
 import landingRoutes from './routes/landing.js'
 
-
 // Import middleware
 import { trackVisitor } from './middleware/visitorTracker.js';
 import { getAuthStatus } from './controllers/authController.js';
@@ -20,7 +19,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Session middleware
+// Sesi middleware
 app.use(session({
   secret: process.env.JWT_SECRET || '',
   resave: false,
@@ -40,12 +39,14 @@ app.use(express.json());
 // Track visitor middleware
 app.use(trackVisitor);
 
-// Rute
+// Rute api
 app.use('/api', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/auth/status', getAuthStatus)
 app.use('/api/landing', landingRoutes);
+// app.use('/api/password', passwordRoutes)
+
 
 // handling middleware
 app.use((err, req, res, next) => {

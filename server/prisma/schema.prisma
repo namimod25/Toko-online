@@ -18,6 +18,7 @@ model User {
   
   orders    Order[]
   cartItems CartItem[]
+  Auditlog Auditlog[]
 }
 
 model Product {
@@ -102,4 +103,31 @@ model HeroSlide {
   order       Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model passwordReset {
+  id Int @id @default(autoincrement())
+  email String 
+  token String @unique
+  expireAt DateTime
+  used Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("password reset")
+}
+
+model Auditlog {
+  id Int @id @default(autoincrement())
+  action String
+  userId Int?
+  userEmail String?
+  description String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_log")
 }
