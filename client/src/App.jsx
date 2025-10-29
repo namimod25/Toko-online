@@ -11,6 +11,8 @@ import Cart from './pages/Cart'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminProducts from './pages/admin/AdminProducts'
 import LandingPage from './pages/LandingPage'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path='forgot-password' element={<ForgotPassword />} />
+              <Route path='reset-password' element={<ResetPassword />} />
               <Route path="/products" element={<Products />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/profile" element={<Profile />} />
