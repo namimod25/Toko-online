@@ -1,25 +1,26 @@
 import { z } from 'zod';
 
+
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('Invalif email address')
+  email: z.string().email('Invalid email address')
 })
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'password must be at least 6 character'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string()
-}).refine((data)=> data.password === data.confirmPassword, {
-  message: "Password don't match",
-  path: ["confimPassworf"]
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
 })
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(6, 'New password must be at least 6 character'),
+  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
   confirmPassword: z.string()
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Password don't match",
+  message: "Passwords don't match",
   path: ["confirmPassword"]
 })
 

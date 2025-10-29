@@ -1,13 +1,13 @@
-import prisma from "../config/database";
-import bcrypt from "bcryptjs";
+import prisma from '../config/database.js'
+import bcryptjs from 'bcryptjs'
 
 import { 
   generateResetToken, 
   generateTokenExpiry, 
   hashToken, 
   verifyToken 
-} from '../utils/passwordReset.js'
-import { sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailService.js'
+} from '../utils/resetPw.js'
+import { sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailServices.js'
 import { logAudit, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 
 // Request password reset
@@ -176,7 +176,7 @@ export const resetPassword = async (req, res) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(password, 12)
+    const hashedPassword = await bcryptjs.hash(password, 12)
 
     // Update user password
     await prisma.user.update({
@@ -240,7 +240,7 @@ export const changePassword = async (req, res) => {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+    const isCurrentPasswordValid = await bcryptjs.compare(currentPassword, user.password)
     if (!isCurrentPasswordValid) {
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
@@ -254,7 +254,7 @@ export const changePassword = async (req, res) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12)
+    const hashedPassword = await bcryptjs.hash(newPassword, 12)
 
     // Update password
     await prisma.user.update({
@@ -291,7 +291,7 @@ export const changePassword = async (req, res) => {
   }
 }
 
-// Validate reset token
+// Validasi reset token
 export const validateResetToken = async (req, res) => {
   try {
     const { token, email } = req.query
@@ -308,7 +308,7 @@ export const validateResetToken = async (req, res) => {
       return res.status(400).json({ valid: false, error: 'Invalid reset token' })
     }
 
-    // Cek berbagai kondisi
+    // Cek kondisi
     if (resetRecord.used) {
       return res.status(400).json({ valid: false, error: 'Token has already been used' })
     }

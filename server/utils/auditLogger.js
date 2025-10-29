@@ -1,25 +1,23 @@
 import prisma from '../config/database.js'
 
-export const logAudit = async (useActionState, userId = null, userEmail = null, description = null, ipAddress = null, userAgent = null) => {
-    try{
-        await prisma.auditlog.create({
-            data: {
-                action,
-                userId: userId || undefined,
-                userEmail,
-                description,
-                ipAddress,
-                userAgent
-            }
-        })
-        console.log(`Audit logging: ${action} for user ${userEmail || userId || 'unknown'}`)
-    }catch (error){
-        console.log('Audit logging error:', error)
-        console.log(`AUDIT FALLBACK - Action: ${action}, User: ${userEmail || userId || 'unknown'}, Description: ${description}`)
-    }
+export const logAudit = async (action, userId = null, userEmail = null, description = null, ipAddress = null, userAgent = null) => {
+  try {
+    await prisma.auditlog.create({
+      data: {
+        action,
+        userId,
+        userEmail,
+        description,
+        ipAddress,
+        userAgent
+      }
+    })
+  } catch (error) {
+    console.error('Audit logging error:', error)
+  }
 }
 
-//audit action
+// Audit actions
 export const AUDIT_ACTIONS = {
   PASSWORD_RESET_REQUEST: 'PASSWORD_RESET_REQUEST',
   PASSWORD_RESET_SUCCESS: 'PASSWORD_RESET_SUCCESS', 
