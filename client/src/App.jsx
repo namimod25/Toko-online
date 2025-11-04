@@ -12,6 +12,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminProducts from './pages/admin/AdminProducts'
 import LandingPage from './pages/LandingPage'
 import ForgotPassword from './pages/ForgotPassword'
+import HeroSlides from './pages/admin/HeroSlides'
 import ResetPassword from './pages/ResetPassword'
 
 
@@ -33,6 +34,7 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/profile" element={<Profile />} />
               <Route path='/admin/dashboard' element={<AdminDashboard />} />
+              <Route path='/admin/hero-slide' element={<HeroSlides />} />
               <Route path='/admin/products' element={<AdminProducts />} />
             </Routes>
           </main>

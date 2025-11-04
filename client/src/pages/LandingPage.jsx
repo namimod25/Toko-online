@@ -43,20 +43,19 @@ const LandingPage = () => {
     try {
       setLoading(true)
 
-      // Fetch semua data secara parallel
       const [productsResponse, slidesResponse, categoriesResponse] = await Promise.all([
         axios.get('/api/landing/featured-products'),
-        axios.get('/api/landing/hero-slides'),
+        axios.get('/api/landing/hero-slides'), // Update endpoint
         axios.get('/api/landing/categories')
       ])
 
       setFeaturedProducts(productsResponse.data)
-      setHeroSlides(slidesResponse.data)
+      setHeroSlides(slidesResponse.data) // Data dari database
       setCategories(categoriesResponse.data)
 
     } catch (error) {
       console.error('Error fetching landing data:', error)
-      // Fallback ke mock data jika API error
+      // Fallback data
       setFeaturedProducts(getMockProducts())
       setHeroSlides(getMockSlides())
       setCategories(getMockCategories())

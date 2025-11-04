@@ -161,7 +161,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => navigate('/admin/products')}
             className="bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300"
@@ -179,6 +179,12 @@ const AdminDashboard = () => {
             className="bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition duration-300"
           >
             Manage Users
+          </button>
+          <button
+            onClick={() => navigate('/admin/hero-slide')}
+            className="bg-purple-400 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition duration-300"
+          >
+            Manage Hero Slides
           </button>
         </div>
       </div>
