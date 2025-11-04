@@ -103,6 +103,8 @@ model HeroSlide {
   order       Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@map("hero_slide")
 }
 
 model passwordReset {

@@ -2,8 +2,10 @@ import express from 'express';
 import { 
   getHeroSlides, 
   createHeroSlide, 
-  updateHeroSlide, 
-  deleteHeroSlide } from '../controllers/heroSlideController.js';
+  updateHeroSlide,
+  deleteHeroSlide,
+  toggleHeroSlide
+} from '../controllers/heroSlideController.js';
 import { 
   getAdminProducts, 
   createProduct, 
@@ -31,6 +33,7 @@ router.delete('/products/:id', requireAuth, requireAdmin, deleteProduct);
 router.get('/hero-slides', requireAuth, requireAdmin, getHeroSlides);
 router.post('/hero-slides', requireAuth, requireAdmin, createHeroSlide);
 router.put('/hero-slides/:id', requireAuth, requireAdmin, updateHeroSlide);
+router.get('/hero-slide/:id/toggle', requireAuth, requireAdmin, toggleHeroSlide);
 router.delete('/hero-slides/:id', requireAuth, requireAdmin, deleteHeroSlide);
 
 // Order Management
