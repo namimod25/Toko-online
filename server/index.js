@@ -15,11 +15,18 @@ import passwordRoutes from "./routes/password.js"
 import { trackVisitor } from './middleware/visitorTracker.js';
 import { getAuthStatus } from './controllers/authController.js';
 import { logger } from './utils/logger.js';
+import {createServer} from 'http';
+import { initializeSocket } from './socket/socket.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// http server
+const server = createServer(app);
+// Initialize socket.io
+initializeSocket(server);
 
 // Session middleware
 app.use(session({
@@ -63,6 +70,6 @@ app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });

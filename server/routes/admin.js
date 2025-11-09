@@ -10,7 +10,8 @@ import {
   getAdminProducts, 
   createProduct, 
   updateProduct, 
-  deleteProduct 
+  deleteProduct, 
+  updateStock
 } from '../controllers/productController.js';
 import { getOrders, updateOrderStatus } from '../controllers/orderController.js';
 import { getUsers } from '../controllers/userController.js';
@@ -27,6 +28,7 @@ router.get('/dashboard', requireAuth, requireAdmin, getDashboardStats);
 router.get('/products', requireAuth, requireAdmin, getAdminProducts);
 router.post('/products', requireAuth, requireAdmin, validate(productSchema), createProduct);
 router.put('/products/:id', requireAuth, requireAdmin, validate(productSchema), updateProduct);
+router.patch('/products/:id/stock', requireAuth, requireAdmin, updateStock)
 router.delete('/products/:id', requireAuth, requireAdmin, deleteProduct);
 
 // rute untuk heroslide management
