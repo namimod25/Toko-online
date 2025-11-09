@@ -3,33 +3,103 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 import { Rupiah } from '../utils/Currency'
-import ProductDescription from '../components/Product/ProductDescription'
+import { socketService } from '../utils/socket'
+import { RefreshCw, ShoppingCart } from 'lucide-react'
 
 const Products = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [realTimeLoading, setRealTimeLoading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
-
-  // Track window width for responsive maxLength
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   useEffect(() => {
     if (!user) {
       navigate('/')
       return
     }
-
+    
     fetchProducts()
+    setupSocketListeners()
+
+    // Cleanup socket listeners on unmount
+    return () => {
+      const socket = socketService.getSocket()
+      if (socket) {
+        socket.off('product-created')
+        socket.off('product-updated')
+        socket.off('product-deleted')
+        socket.off('stock-updated')
+      }
+    }
   }, [user, navigate])
+
+  const setupSocketListeners = () => {
+    const socket = socketService.connect()
+
+    socket.on('product-created', (newProduct) => {
+      console.log('New product created:', newProduct)
+      setProducts(prev => {
+        // Cek apakah product sudah ada
+        const exists = prev.find(p => p.id === newProduct.id)
+        if (!exists) {
+          return [newProduct, ...prev]
+        }
+        return prev
+      })
+      showRealTimeNotification(`New product: ${newProduct.name}`)
+    })
+
+    socket.on('product-updated', (updatedProduct) => {
+      console.log('Product updated:', updatedProduct)
+      setProducts(prev => 
+        prev.map(product => 
+          product.id === updatedProduct.id ? updatedProduct : product
+        )
+      )
+      showRealTimeNotification(`Product updated: ${updatedProduct.name}`)
+    })
+
+    socket.on('product-deleted', (deletedProductId) => {
+      console.log('Product deleted:', deletedProductId)
+      setProducts(prev => 
+        prev.filter(product => product.id !== deletedProductId)
+      )
+      showRealTimeNotification('Product deleted')
+    })
+
+    socket.on('stock-updated', ({ productId, stock }) => {
+      console.log('Stock updated:', productId, stock)
+      setProducts(prev =>
+        prev.map(product =>
+          product.id === productId ? { ...product, stock } : product
+        )
+      )
+      showRealTimeNotification(`Stock updated for product ${productId}`)
+    })
+  }
+
+  const showRealTimeNotification = (message) => {
+    setRealTimeLoading(true)
+    
+    // Create notification element
+    const notification = document.createElement('div')
+    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up'
+    notification.innerHTML = `
+      <div class="flex items-center">
+        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+        <span>${message}</span>
+      </div>
+    `
+    
+    document.body.appendChild(notification)
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+      notification.remove()
+      setRealTimeLoading(false)
+    }, 3000)
+  }
 
   const fetchProducts = async () => {
     try {
@@ -37,9 +107,6 @@ const Products = () => {
       setProducts(response.data)
     } catch (error) {
       console.error('Error fetching products:', error)
-      if (error.response?.status === 401) {
-        navigate('/')
-      }
     } finally {
       setLoading(false)
     }
@@ -48,7 +115,10 @@ const Products = () => {
   const addToCart = async (productId) => {
     try {
       await axios.post('/api/cart/add', { productId, quantity: 1 })
-      alert('Product added to cart!')
+      
+      // Show success message
+      const product = products.find(p => p.id === productId)
+      showRealTimeNotification(`Added ${product?.name} to cart!`)
     } catch (error) {
       alert('Failed to add product to cart')
     }
@@ -68,67 +138,109 @@ const Products = () => {
 
   return (
     <div className="min-h-screen">
-      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-6 md:mb-8 text-center md:text-left">
-        Our Products
-      </h1>
-
-      {products.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600 text-lg">No products available</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Our Products</h1>
+            <p className="text-gray-600 mt-2">
+              Discover amazing products {realTimeLoading && '(Updating...)'}
+            </p>
+          </div>
+          
+          {/* Real-time Status Indicator */}
+          <div className="flex items-center space-x-4">
+            {realTimeLoading && (
+              <div className="flex items-center text-green-600">
+                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                <span className="text-sm">Live Updates</span>
+              </div>
+            )}
+            <div className="text-sm text-gray-500">
+              {products.length} products available
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+
+        {/* Products Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden border hover:shadow-lg transition duration-300 flex flex-col h-full">
-              <div className="flex-shrink-0">
+            <div 
+              key={product.id} 
+              className="bg-white rounded-lg shadow-md overflow-hidden border hover:shadow-lg transition duration-300 transform hover:-translate-y-1"
+            >
+              <div className="relative h-48 overflow-hidden">
                 <img
-                  src={product.image || "https://via.placeholder.com/300x200?text=No+Image"}
+                  src={product.image}
                   alt={product.name}
-                  className="w-full h-40 sm:h-48 md:h-56 object-cover"
+                  className="w-full h-full object-cover transition duration-300 hover:scale-105"
                   onError={(e) => {
                     e.target.src = "https://via.placeholder.com/300x200?text=No+Image"
                   }}
                 />
+                
+                {/* Stock Status Badge */}
+                <div className="absolute top-2 left-2">
+                  {product.stock === 0 ? (
+                    <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                      Out of Stock
+                    </span>
+                  ) : product.stock < 10 ? (
+                    <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                      Low Stock: {product.stock}
+                    </span>
+                  ) : (
+                    <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                      In Stock: {product.stock}
+                    </span>
+                  )}
+                </div>
               </div>
-
-              <div className="p-3 sm:p-4 flex flex-col flex-grow">
-                {/* Product Name */}
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+              
+              <div className="p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                   {product.name}
                 </h3>
-
-                {/* Description - Responsive */}
-                <div className="mb-3 flex-grow">
-                  <ProductDescription
-                    description={product.description}
-                    maxLength={windowWidth < 768 ? 100 : 150}
-                  />
-                </div>
-
-                {/* Category */}
+                
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  {product.description}
+                </p>
+                
                 <div className="mb-3">
-                  <span className="inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                     {product.category}
                   </span>
                 </div>
-
-                {/* Price and Add to Cart */}
-                <div className="flex justify-between items-center mt-auto">
-                  <span className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-2xl font-bold text-green-600">
                     {Rupiah(product.price)}
                   </span>
                   <button
                     onClick={() => addToCart(product.id)}
-                    className="bg-blue-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded hover:bg-blue-600 transition duration-200 font-medium text-xs sm:text-sm"
+                    disabled={product.stock === 0}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
-                    Add to Cart
+                    <ShoppingCart className="h-4 w-4 mr-1" />
+                    {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
-      )}
+
+        {products.length === 0 && (
+          <div className="text-center py-12">
+            <ShoppingCart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No products available
+            </h3>
+            <p className="text-gray-600">
+              Check back later for new products
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
