@@ -30,8 +30,8 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const [statsRes, ordersRes] = await Promise.all([
-        axios.get('/api/admin/stats'),
-        axios.get('/api/admin/orders/recent')
+        axios.get('/api/admin/dashboard'),
+        axios.get('/api/admin/orders?limit=5')
       ])
 
       setStats(statsRes.data)
