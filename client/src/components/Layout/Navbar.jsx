@@ -56,7 +56,7 @@ const Navbar = () => {
                                     Register
                                 </Link>
                                 {user && user.role === 'ADMIN' && (
-                                    <Link to="/admin/products" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                                    <Link to="/admin/dashboard" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                                         Admin Dashboard
                                     </Link>
                                 )}
