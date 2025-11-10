@@ -1,5 +1,5 @@
 @tailwind base;
-@tailwind components;
+/* @tailwind components; */
 @tailwind utilities;
 
 /* Custom line clamp utilities */
@@ -142,4 +142,29 @@ body {
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.product-description {
+  line-height: 1.6;
+}
+
+.show-more-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 4px 0;
+  transition: color 0.2s ease;
+}
+
+.show-more-btn:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.show-more-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
 }

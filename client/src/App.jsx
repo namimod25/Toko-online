@@ -14,6 +14,9 @@ import LandingPage from './pages/LandingPage'
 import ForgotPassword from './pages/ForgotPassword'
 import HeroSlides from './pages/admin/HeroSlides'
 import ResetPassword from './pages/ResetPassword'
+import ProductCard from './components/productCard'
+import './index.css'
+
 
 
 function App() {
@@ -31,6 +34,7 @@ function App() {
               <Route path='forgot-password' element={<ForgotPassword />} />
               <Route path='reset-password' element={<ResetPassword />} />
               <Route path="/products" element={<Products />} />
+              <Route path='/product-card' element={<ProductCard />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/profile" element={<Profile />} />
               <Route path='/admin/dashboard' element={<AdminDashboard />} />
