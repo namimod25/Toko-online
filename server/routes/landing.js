@@ -43,7 +43,7 @@ router.get('/featured-products', async (req, res) => {
   }
 });
 
-// Get hero slides from database
+//  hero slides
 router.get('/hero-slide', getActiveHeroSlides)
 router.get('/hero-slides', async (req, res) => {
   try {
