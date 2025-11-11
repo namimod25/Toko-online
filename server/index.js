@@ -56,6 +56,8 @@ app.use('/auth/status', getAuthStatus)
 app.use('/api/landing', landingRoutes);
 app.use('/api/password', passwordRoutes)
 
+
+
 // handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
