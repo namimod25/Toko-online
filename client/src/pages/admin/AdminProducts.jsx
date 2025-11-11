@@ -235,8 +235,6 @@ const AdminProducts = () => {
 
     try {
       await axios.delete(`/api/admin/products/${productId}`)
-      // Product akan otomatis terhapus dari state via socket event
-      // Tidak perlu fetchProducts() lagi
     } catch (error) {
       console.error('Error deleting product:', error)
       alert('Failed to delete product')
@@ -289,10 +287,9 @@ const AdminProducts = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manage Products</h1>
           <p className="text-gray-600 mt-2">
-            Real-time product management 
             {realTimeUpdates > 0 && (
               <span className="text-green-600 ml-2">
-                • {realTimeUpdates} live updates
+                • {realTimeUpdates}
               </span>
             )}
           </p>
