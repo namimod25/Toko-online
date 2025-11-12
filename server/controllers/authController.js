@@ -4,15 +4,30 @@ import { loginSchema, registerSchema } from '../middleware/validation.js';
 import z from 'zod';
 import {logAudit, AUDIT_ACTIONS} from '../utils/auditLogger.js'
 
+
+
+
 export const register = async (req, res) => {
   try {
     const validatedData = registerSchema.parse(req.body);
-    
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email }
-    });
+    const {email, password, captchaAnswer, captchaToken} = req.body;
 
-    if (existingUser) {
+    try{
+      const decoded = JsonWebTokenError.verify(captchaToken, process.env.CAPTCHA_SECRET);
+      if (decoded.answer !== parseInt(captchaAnswer,)) {
+        return res.status(400).json({ error: 'Invalid captcha answer' });
+      }
+    } catch (error) {
+      return res.status(400).json({ error: 'Captcha verification failed' });
+    }
+
+    // cek user jika sudah ada
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    if (existingUser.validatedData) {
       await logAudit(
         AUDIT_ACTIONS.REGISTER,
         null,
@@ -24,7 +39,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+    // const hashedPassword = await bcrypt.hash(validatedData.password, 12);
 
     const user = await prisma.user.create({
       data: {
