@@ -30,7 +30,7 @@ initializeSocket(server);
 
 // Session middleware
 app.use(session({
-  secret: process.env.JWT_SECRET || 'http://localhost:3000',
+  secret: process.env.JWT_SECRET || '',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -54,7 +54,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/auth/status', getAuthStatus)
 app.use('/api/landing', landingRoutes);
-app.use('/api/password', passwordRoutes);
+app.use('/api/password', passwordRoutes)
 
 
 
