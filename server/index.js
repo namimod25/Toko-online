@@ -30,7 +30,7 @@ initializeSocket(server);
 
 // Session middleware
 app.use(session({
-  secret: process.env.JWT_SECRET || '',
+  secret: process.env.JWT_SECRET || 'my',
   resave: false,
   saveUninitialized: false,
   cookie: {

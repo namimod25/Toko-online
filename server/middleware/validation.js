@@ -59,3 +59,9 @@ export const validate = (schema) => (req, res, next) => {
     next(error);
   }
 };
+
+export const loginWithCapchaSchema = z.object({
+  email: z.string().email('invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  recaptchaToken: z.string().min(1, 'reCAPTCHA verify is required')
+})
