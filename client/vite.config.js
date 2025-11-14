@@ -9,12 +9,12 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       }
     }
   },
-  build: {
-    outDir: 'build',
-    sourcemap: true
+  define:{
+    'process.env': process.env
   }
 })

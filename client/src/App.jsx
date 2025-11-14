@@ -15,6 +15,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import HeroSlides from './pages/admin/HeroSlides'
 import ResetPassword from './pages/ResetPassword'
 import ProductCard from './components/productCard'
+import Captcha from './Captcha'
 import './index.css'
 
 
