@@ -1,54 +1,59 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-
-// Google reCAPTCHA site key dari environment
-const RECAPTCHA_SITE_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY || 'my'
+import { loginSchema } from '../../schemas/authSchema'
+import axios from 'axios'
+import Captcha from '../components/Captcha'
 
 const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
-  })
-  const [rememberMe, setRememberMe] = useState(false)
-  const [recaptchaToken, setRecaptchaToken] = useState('')
-  const [isCaptchaLoaded, setIsCaptchaLoaded] = useState(false)
+    password: '',
+    captchaInput: ''
+  });
+
+  const [captcha, setCaptcha] = useState({
+    id: '',
+    text: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  //axios
+  const api = axios.create({
+    baseURL: 'http://localhost:3000/api',
+    withCredentials: true
+  });
+
+  useEffect(() => {
+    generateCaptcha();
+  },[]);
+
+  const generateCaptcha = async () => {
+    try{
+      const response = await api.get('/captcha/generate');
+      setCaptcha({
+        id: response.data.captchaId,
+        text: response.data.captchaText
+      });
+    }catch(error){
+      console.error('Error generating CAPTCHA:', error);
+      setMessage('Error generating CAPTCHA');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
-
-  // Load Google reCAPTCHA script
-  useEffect(() => {
-    const loadRecaptcha = () => {
-      if (window.grecaptcha) {
-        setIsCaptchaLoaded(true)
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = `http://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        setIsCaptchaLoaded(true)
-        console.log('reCAPTCHA script loaded')
-      }
-      script.onerror = () => {
-        console.error('Failed to load reCAPTCHA script')
-        setIsCaptchaLoaded(false)
-      }
-      document.head.appendChild(script)
-    }
-
-    loadRecaptcha()
-
-    // Check if user previously selected remember me
-    const savedRememberMe = localStorage.getItem('rememberMe')
-    if (savedRememberMe === 'true') {
-      setRememberMe(true)
-    }
-  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -64,126 +69,85 @@ const Login = () => {
     }
   }
 
-  const handleRememberMeChange = (e) => {
-    setRememberMe(e.target.checked)
-  }
-
-  const executeRecaptcha = async () => {
-    if (!window.grecaptcha) {
-      throw new Error('reCAPTCHA not loaded')
-    }
-
-    return new Promise((resolve, reject) => {
-      window.grecaptcha.ready(async () => {
-        try {
-          const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
-            action: 'login'
-          })
-          resolve(token)
-        } catch (error) {
-          reject(error)
-        }
-      })
-    })
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setErrors({})
+    setMessage('');
 
-    // Basic validation
-    if (!formData.email) {
-      setErrors({ email: 'Email is required' })
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.password) {
-      setErrors({ password: 'Password is required' })
-      setIsLoading(false)
-      return
-    }
+    if (!captcha.id) {
+    setMessage('CAPTCHA tidak valid, silakan refresh halaman');
+    setIsLoading(false);
+    return;
+  }
 
     try {
-      let captchaToken = recaptchaToken
+      // Validasi dengan schema
+      loginSchema.parse(formData)
+      setErrors({})
 
-      // Jika di production atau token belum ada, execute reCAPTCHA
-      if (process.env.NODE_ENV === 'production' || !captchaToken) {
-        if (!isCaptchaLoaded) {
-          throw new Error('reCAPTCHA is still loading. Please try again.')
+      // Kirim data login termasuk captcha
+      const response = await api.post('/login', {
+        email: formData.email, // Perbaiki: gunakan email bukan name
+        password: formData.password,
+        captchaId: captcha.id,
+        captchaInput: formData.captchaInput
+      });
+      
+      if(response.data.success){
+        setMessage('Login Berhasil');
+        
+        // Login ke auth context
+        const result = await login(formData.email, formData.password)
+
+        if (result.success) {
+          navigate('/admin/dashboard')
+        } else {
+          setErrors({ submit: result.error })
         }
-        captchaToken = await executeRecaptcha()
-        setRecaptchaToken(captchaToken)
-      }
-
-      console.log('Attempting login with CAPTCHA...')
-      
-      // Gunakan endpoint login dengan CAPTCHA
-      const response = await fetch('/api/login-with-captcha', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          rememberMe: rememberMe,
-          recaptchaToken: captchaToken
-        })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed')
-      }
-
-      // Reset reCAPTCHA setelah success (cek keberadaan method reset)
-      if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-        window.grecaptcha.reset()
-      }
-
-      // Update auth context
-      const loginResult = await login(formData.email, formData.password, rememberMe)
-      
-      if (loginResult.success) {
-        navigate('/')
       } else {
-        setErrors({ submit: loginResult.error })
+        setMessage(response.data.message);
+        generateCaptcha(); // Generate captcha baru jika gagal
       }
 
     } catch (error) {
-      console.error('Login error:', error)
-      setErrors({ 
-        submit: error.message || 'Login failed. Please try again.' 
-      })
-      
-      // Reset reCAPTCHA pada error (cek keberadaan method reset)
-      if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-        window.grecaptcha.reset()
+      if(error.response){
+        setMessage(error.response.data.message || 'Login Gagal');
+      } else if (error.errors) {
+        // Error validasi Zod
+        const newErrors = {}
+        error.errors.forEach(err => {
+          newErrors[err.path[0]] = err.message
+        })
+        setErrors(newErrors)
+      } else {
+        setMessage('Network error');
       }
+      generateCaptcha(); // Generate captcha baru jika error
     } finally {
       setIsLoading(false)
+      setFormData(prev => ({ ...prev, captchaInput: ''}));
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
-        
+
         {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          
-          {/* Header */}
+
+          {/* Decorative Header */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 py-6 px-8">
             <div className="text-center">
               <h2 className="text-3xl font-bold text-white mb-2">
                 Welcome Back
               </h2>
               <p className="text-blue-100 text-sm">
-                Sign in to your account
+                Sign in to your account to continue
               </p>
             </div>
           </div>
@@ -191,105 +155,177 @@ const Login = () => {
           {/* Form Section */}
           <div className="py-8 px-8">
             <form className="space-y-6" onSubmit={handleSubmit}>
-              
+
               {/* Email Input */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
                 </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  className={`block w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                    errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
+                      }`}
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleChange}
+                  />
+                </div>
                 {errors.email && (
-                  <p className="mt-2 text-sm text-red-600">{errors.email}</p>
+                  <p className="mt-2 text-sm text-red-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.email}
+                  </p>
                 )}
               </div>
 
-              {/* Password Input */}
+              {/* Password Input dengan Toggle */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  className={`block w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                    errors.password ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleChange}
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.password ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
+                      }`}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                  />
+                  {/* Eye Icon Button */}
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition duration-200"
+                  >
+                    {showPassword ? (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {errors.password && (
-                  <p className="mt-2 text-sm text-red-600">{errors.password}</p>
+                  <p className="mt-2 text-sm text-red-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.password}
+                  </p>
                 )}
               </div>
 
-              {/* Remember Me */}
+              {/* CAPTCHA Section */}
+              <div>
+                <label htmlFor="captchaInput" className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter CAPTCHA
+                </label>
+                
+                {/* Komponen Captcha */}
+                {captcha.id && (
+                  <div className="mb-3">
+                    <Captcha 
+                      captchaId={captcha.id} 
+                      captchaText={captcha.text}
+                      onReload={generateCaptcha}
+                    />
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 4v12l-4-2-4 2V4M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="captchaInput"
+                    name="captchaInput"
+                    type="text"
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.captchaInput ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
+                      }`}
+                    placeholder="Enter the CAPTCHA text"
+                    value={formData.captchaInput}
+                    onChange={handleChange}
+                  />
+                </div>
+                {errors.captchaInput && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.captchaInput}
+                  </p>
+                )}
+              </div>
+
+              {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
-                    checked={rememberMe}
-                    onChange={handleRememberMeChange}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                    Keep me logged in
+                    Remember me
                   </label>
                 </div>
-              </div>
 
-              {/* reCAPTCHA Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Security Verification
-                </label>
-                <div className="flex justify-center">
-                  {isCaptchaLoaded ? (
-                    <div 
-                      className="g-recaptcha"
-                      data-sitekey={RECAPTCHA_SITE_KEY}
-                      data-size="normal"
-                      data-theme="light"
-                    ></div>
-                  ) : (
-                    <div className="bg-gray-100 rounded-lg p-4 text-center">
-                      <p className="text-gray-600 text-sm">
-                        Loading security check...
-                      </p>
-                    </div>
-                  )}
+                <div className="text-sm">
+                  <Link
+                    to="/forgot-password"
+                    className="font-medium text-blue-600 hover:text-blue-500 transition duration-200"
+                  >
+                    Forgot your password?
+                  </Link>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  This helps us prevent automated login attempts
-                </p>
               </div>
 
-              {/* Error Message */}
-              {errors.submit && (
-                <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+              {/* Success/Error Message */}
+              {message && (
+                <div className={`rounded-lg p-4 border ${message.includes('Berhasil') ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
+                      {message.includes('Berhasil') ? (
+                        <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-red-700">{errors.submit}</p>
+                      <p className={`text-sm ${message.includes('Berhasil') ? 'text-green-700' : 'text-red-700'}`}>
+                        {message}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -299,8 +335,8 @@ const Login = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={isLoading || (process.env.NODE_ENV === 'production' && !isCaptchaLoaded)}
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
                 >
                   {isLoading ? (
                     <div className="flex items-center">
@@ -308,7 +344,7 @@ const Login = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Verifying...
+                      Signing in...
                     </div>
                   ) : (
                     'Sign in to your account'
@@ -316,40 +352,38 @@ const Login = () => {
                 </button>
               </div>
 
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
+                </div>
+              </div>
+
               {/* Register Link */}
               <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Don't have an account?{' '}
-                  <Link
-                    to="/register"
-                    className="font-medium text-blue-600 hover:text-blue-500 transition duration-200"
-                  >
-                    Sign up
-                  </Link>
-                </p>
+                <Link
+                  to="/register"
+                  className="inline-flex items-center font-medium text-blue-600 hover:text-blue-500 transition duration-200 group"
+                >
+                  Create an account
+                  <svg className="ml-1 w-4 h-4 transform group-hover:translate-x-1 transition duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
 
             </form>
           </div>
 
-          {/* Footer dengan info security */}
+          {/* Footer */}
           <div className="bg-gray-50 py-4 px-8 border-t border-gray-200">
             <div className="text-center text-sm text-gray-500">
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                <span>Protected by reCAPTCHA</span>
-              </div>
+              © 2024 OnlineStore. All rights reserved.
             </div>
           </div>
-        </div>
-
-        {/* Additional Security Info */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-600">
-            Secure login with CAPTCHA protection
-          </p>
         </div>
       </div>
     </div>

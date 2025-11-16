@@ -8,13 +8,13 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false
+        target: 'http://localhost:5001',
+        changeOrigin: true
       }
     }
   },
-  define:{
-    'process.env': process.env
+  build: {
+    outDir: 'build',
+    sourcemap: true
   }
 })

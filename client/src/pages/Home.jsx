@@ -1,105 +1,100 @@
-import React,{useState,useEffect} from 'react'
-import socketServices from '../services/socketServices'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { ShoppingBag, Truck, Shield, ArrowRight } from 'lucide-react'
 
 const Home = () => {
-
   const { user } = useAuth()
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-    // Load initial products
-    loadProducts();
-
-    // Setup socket connection
-    socketServices.connect();
-
-    // Listen for product updates
-    socketServices.onProductUpdate(handleProductUpdate);
-
-    // Cleanup on component unmount
-    return () => {
-      socketService.disconnect();
-    };
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await getProducts();
-      setProducts(response.data);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProductUpdate = (update) => {
-    console.log('Product update received:', update);
-    
-    setProducts(prevProducts => {
-      switch (update.type) {
-        case 'create':
-          // Add new product to the beginning
-          return [update.data, ...prevProducts];
-
-        case 'update':
-          // Update existing product
-          return prevProducts.map(product =>
-            product._id === update.data._id ? update.data : product
-          );
-
-        case 'delete':
-          // Remove deleted product
-          return prevProducts.filter(product =>
-            product._id !== update.data._id
-          );
-
-        default:
-          return prevProducts;
-      }
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-
- return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Produk Terbaru</h1>
-      
-      {/* Real-time indicator */}
-      <div className="flex items-center mb-4 text-green-600">
-        <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse mr-2"></div>
-        <span className="text-sm">Live Updates</span>
-      </div>
-
-      {products.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Belum ada produk tersedia</p>
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              Welcome to OnlineStore
+            </h1>
+            <p className="text-xl md:text-2xl mb-8 opacity-90">
+              Discover amazing products at great prices
+            </p>
+            <Link
+              to="/products"
+              className="inline-flex items-center bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300"
+            >
+              Shop Now
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map(product => (
-            <ProductCard 
-              key={product._id} 
-              product={product} 
-            />
-          ))}
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShoppingBag className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Wide Selection</h3>
+              <p className="text-gray-600">
+                Choose from thousands of products across various categories
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Truck className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Fast Delivery</h3>
+              <p className="text-gray-600">
+                Quick and reliable shipping to your doorstep
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="h-8 w-8 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Secure Shopping</h3>
+              <p className="text-gray-600">
+                Your data and payments are always protected
+              </p>
+            </div>
+          </div>
         </div>
+      </section>
+
+      {/* CTA Section */}
+      {!user && (
+        <section className="py-16 bg-gray-100">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Ready to start shopping?
+            </h2>
+            <p className="text-xl text-gray-600 mb-8">
+              Create an account today and enjoy exclusive benefits
+            </p>
+            <div className="space-x-4">
+              <Link
+                to="/register"
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300"
+              >
+                Sign Up Free
+              </Link>
+              <Link
+                to="/login"
+                className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-50 transition duration-300"
+              >
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </section>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default Home;
+export default Home
