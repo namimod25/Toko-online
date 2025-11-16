@@ -1,25 +1,14 @@
-export const formatResponse = (success, data, message = '') => {
-  return {
-    success,
-    data,
-    message,
-    timestamp: new Date().toISOString()
-  };
+// Fungsi untuk generate random text
+export const randomText = (length = 6) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Hilangkan karakter yang membingungkan
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 };
 
-export const paginate = (page = 1, limit = 10) => {
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  return { skip, take: parseInt(limit) };
-};
-
-export const buildSearchQuery = (search) => {
-  if (!search) return {};
-  
-  return {
-    OR: [
-      { name: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-      { category: { contains: search, mode: 'insensitive' } }
-    ]
-  };
+// Fungsi untuk generate random number
+export const randomNumber = (min, max) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 };

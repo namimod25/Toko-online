@@ -1,29 +1,16 @@
 import express from 'express';
-import { 
-  register, 
-  logout, 
-  getAuthStatus, 
-  getProfile,
-  login,
-  loginWithCaptcha
-} from '../controllers/authController.js';
-import { requireAuth } from '../middleware/auth.js';
-import { loginWithCapchaSchema, validate } from '../middleware/validation.js';
-import verifyRecaptchaMiddleware from '../middleware/recaptcha.js';
+import { login, logout, getAuthStatus } from '../controllers/authController.js';
+import { validateLoginInput } from '../middleware/validation.js';
+import { requireNoAuth, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/register', register);
-router.post('/login', login);
-router.post('/logout', logout);
-router.get('/auth/status', getAuthStatus);
-router.get('/profile', requireAuth, getProfile);
 
-router.post(
-  '/login-with-captcha',
-  validate(loginWithCapchaSchema),
-  verifyRecaptchaMiddleware,
-  loginWithCaptcha
-)
+router.post('/login', requireNoAuth, validateLoginInput, login);
+
+router.post('/logout', requireAuth, logout);
+
+
+router.get('/status', getAuthStatus);
 
 export default router;

@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../config/database.js';
+import prisma from '../utils/database.js';
 import { getActiveHeroSlides } from '../controllers/heroSlideController.js';
 
 const router = express.Router();
@@ -43,7 +43,7 @@ router.get('/featured-products', async (req, res) => {
   }
 });
 
-//  hero slides
+// Get hero slides from database
 router.get('/hero-slide', getActiveHeroSlides)
 router.get('/hero-slides', async (req, res) => {
   try {

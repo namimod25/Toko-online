@@ -16,6 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  @@map("users")
   orders    Order[]
   cartItems CartItem[]
   Auditlog Auditlog[]
@@ -132,4 +133,13 @@ model Auditlog {
   user User? @relation(fields: [userId], references: [id])
 
   @@map("audit_log")
+}
+
+model Captcha {
+  id String @id @default(cuid())
+  text String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("captchas")
 }

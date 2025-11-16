@@ -24,6 +24,35 @@ export const changePasswordSchema = z.object({
   path: ["confirmPassword"]
 })
 
+
+export const validateLoginInput = (req, res, next) => {
+  const { email, password, captchaId, captchaInput } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username and password are required'
+    });
+  }
+
+  if (!captchaId || !captchaInput) {
+    return res.status(400).json({
+      success: false,
+      message: 'CAPTCHA is required'
+    });
+  }
+
+   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Format email tidak valid'
+    });
+  }
+
+  next();
+};
+
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
@@ -59,9 +88,3 @@ export const validate = (schema) => (req, res, next) => {
     next(error);
   }
 };
-
-export const loginWithCapchaSchema = z.object({
-  email: z.string().email('invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  recaptchaToken: z.string().min(1, 'reCAPTCHA verify is required')
-})

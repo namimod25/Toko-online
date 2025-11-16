@@ -1,4 +1,4 @@
-import prisma from '../config/database.js'
+import prisma from '../utils/database.js'
 
 //  all hero slides (untuk admin)
 export const getHeroSlides = async (req, res) => {

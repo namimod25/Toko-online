@@ -1,4 +1,4 @@
-import prisma from '../config/database.js';
+import prisma from '../utils/database.js';
 
 export const trackVisitor = async (req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api/admin')) {

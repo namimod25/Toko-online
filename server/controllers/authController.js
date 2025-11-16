@@ -1,33 +1,20 @@
 import bcrypt from 'bcryptjs';
-import prisma from '../config/database.js';
-import { loginSchema, registerSchema } from '../middleware/validation.js';
+import { UserModel } from '../models/User.js';
+import  CaptchaModel  from '../models/Captcha.js';
+import prisma from '../utils/database.js';
+import { registerSchema } from '../middleware/validation.js';
 import z from 'zod';
 import {logAudit, AUDIT_ACTIONS} from '../utils/auditLogger.js'
-import { findUserByname, verifyPassword } from '../models/userModel.js';
-
-
 
 export const register = async (req, res) => {
   try {
     const validatedData = registerSchema.parse(req.body);
-    const {email, password, captchaAnswer, captchaToken} = req.body;
-
-    try{
-      const decoded = JsonWebTokenError.verify(captchaToken, process.env.RECAPTCHA_SECRET_KEY);
-      if (decoded.answer !== parseInt(captchaAnswer,)) {
-        return res.status(400).json({ error: 'Invalid captcha answer' });
-      }
-    } catch (error) {
-      return res.status(400).json({ error: 'Captcha verification failed' });
-    }
-
-    // cek user jika sudah ada
+    
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email: validatedData.email }
     });
-    const hashedPassword = await bcrypt.hash(password, 12);
 
-    if (existingUser.validatedData) {
+    if (existingUser) {
       await logAudit(
         AUDIT_ACTIONS.REGISTER,
         null,
@@ -39,7 +26,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+    const hashedPassword = await bcrypt.hash(validatedData.password, 12);
 
     const user = await prisma.user.create({
       data: {
@@ -92,95 +79,87 @@ export const register = async (req, res) => {
 };
 
 export const login = async (req, res) => {
- const {name, password, captcha } = req.body;
- const { prisma } = req; // PrismaClient di-inject dari middleware
-
- // 1. Validasi CAPTCHA
- if (!captcha || captcha.toLowerCase() !== req.session.captcha.toLowerCase()) {
-   delete req.session.captcha;
-   return res.status(400).json({ 
-     success: false, 
-     error: 'CAPTCHA',
-     message: 'Kode CAPTCHA salah atau tidak valid' 
-   });
- }
- 
- delete req.session.captcha;
-
- // 2. Cari user di database menggunakan Model
- const user = await findUserByname(prisma, name);
-
- // 3. Verifikasi user dan password
- if (!user) {
-   return res.status(401).json({ 
-     success: false, 
-     error: 'credentials',
-     message: 'Username atau password salah' 
-   });
- }
-
- const isPasswordValid = await verifyPassword(password, user.password);
-
- if (!isPasswordValid) {
-   return res.status(401).json({ 
-     success: false, 
-     error: 'credentials',
-     message: 'Username atau password salah' 
-   });
- }
-
- // 4. Login berhasil, setup session user (tanpa password)
- const { password: _, ...userWithoutPassword } = user;
- req.session.user = userWithoutPassword;
-
- res.json({ 
-   success: true, 
-   message: 'Login berhasil',
-   user: userWithoutPassword
- });
-};
-
-// New: login with reCAPTCHA token (used by client that posts to /login-with-captcha)
-export const loginWithCaptcha = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, captchaId, captchaInput } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'validation', message: 'Email and password are required' });
+    // Validasi input yang diperlukan
+    if (!email || !password || !captchaId || !captchaInput) {
+      return res.status(400).json({
+        success: false,
+        message: 'Semua field harus diisi'
+      });
     }
 
-    // Find user by email
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Validasi format captchaId
+    if (typeof captchaId !== 'string' || captchaId.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'CAPTCHA ID tidak valid'
+      });
+    }
 
+    // Cari captcha di database
+    const captcha = await CaptchaModel.findById(captchaId);
+    if (!captcha) {
+      return res.status(400).json({
+        success: false,
+        message: 'CAPTCHA tidak valid atau telah kadaluarsa'
+      });
+    }
+
+    // Validasi captcha text
+    if (captcha.text !== captchaInput) {
+      // Hapus captcha yang sudah digunakan (opsional)
+      await CaptchaModel.deleteById(captchaId);
+      return res.status(400).json({
+        success: false,
+        message: 'CAPTCHA tidak sesuai'
+      });
+    }
+
+    // Hapus captcha yang sudah digunakan
+    await CaptchaModel.deleteById(captchaId);
+
+    // Lanjutkan dengan proses login...
+    // Cari user by email
+    const user = await UserModel.findByEmail(email);
     if (!user) {
-      return res.status(401).json({ success: false, error: 'credentials', message: 'Email atau password salah' });
+      return res.status(401).json({
+        success: false,
+        message: 'Email atau password salah'
+      });
     }
 
-    const isPasswordValid = await verifyPassword(password, user.password);
-
+    // Verifikasi password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ success: false, error: 'credentials', message: 'Email atau password salah' });
+      return res.status(401).json({
+        success: false,
+        message: 'Email atau password salah'
+      });
     }
 
-    const { password: _pwd, ...userWithoutPassword } = user;
-    req.session.user = userWithoutPassword;
+    // Generate token, set session, dll...
+    // ...
 
-    // Optionally log audit
-    await logAudit(
-      AUDIT_ACTIONS.LOGIN,
-      user.id,
-      user.email,
-      'User logged in via reCAPTCHA flow',
-      req.ip,
-      req.get('User-Agent')
-    )
+    return res.status(200).json({
+      success: true,
+      message: 'Login berhasil',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name
+      }
+    });
 
-    return res.json({ success: true, message: 'Login berhasil', user: userWithoutPassword });
   } catch (error) {
-    console.error('loginWithCaptcha error:', error);
-    return res.status(500).json({ success: false, error: 'server', message: 'Internal server error' });
+    console.error('Login error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
   }
-}
+};
 
 export const logout = (req, res) => {
   req.session.destroy((err) => {

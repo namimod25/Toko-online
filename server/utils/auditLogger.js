@@ -1,4 +1,4 @@
-import prisma from '../config/database.js'
+import prisma from '../utils/database.js'
 
 export const logAudit = async (action, userId = null, userEmail = null, description = null, ipAddress = null, userAgent = null) => {
   try {

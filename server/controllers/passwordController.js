@@ -1,4 +1,4 @@
-import prisma from '../config/database.js'
+import prisma from '../utils/database.js'
 import bcryptjs from 'bcryptjs'
 
 import { 
