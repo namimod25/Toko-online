@@ -15,7 +15,6 @@ import landingRoutes from './routes/landing.js'
 import passwordRoutes from "./routes/password.js"
 import captchaRoutes from './routes/captcha.js';
 
-
 // Import middleware
 import { trackVisitor } from './middleware/visitorTracker.js';
 import { getAuthStatus } from './controllers/authController.js';
@@ -38,36 +37,30 @@ const server = createServer(app);
 // Initialize socket.io
 initializeSocket(server);
 
-// Session middleware
-app.use(session({
-  secret: process.env.JWT_SECRET || '',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false,
-    maxAge: 24 * 60 * 60 * 1000
-  }
-}));
-
+// ✅ PERBAIKI: Session middleware HARUS sebelum CORS
+app.use(session(sessionConfig));
 
 app.use(cors({
   origin: 'http://localhost:3000',
-  credentials: true
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE']
 }));
+
 app.use(express.json());
-app.use(session(sessionConfig));
 
 // Track visitor middleware
 app.use(trackVisitor);
 
-// Rute
-app.use('/api/', authRoutes);
+
+app.use('/api/auth', authRoutes); // Semua auth routes di bawah /api/auth
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/status', getAuthStatus)
 app.use('/api/landing', landingRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/captcha', captchaRoutes);
+
+
+app.get('/api/status', getAuthStatus);
 
 // handling middleware
 app.use((err, req, res, next) => {

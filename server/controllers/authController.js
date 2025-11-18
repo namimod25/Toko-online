@@ -139,9 +139,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Generate token, set session, dll...
-    // ...
-
     return res.status(200).json({
       success: true,
       message: 'Login berhasil',
