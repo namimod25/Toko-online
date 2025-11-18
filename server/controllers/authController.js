@@ -120,8 +120,6 @@ export const login = async (req, res) => {
     // Hapus captcha yang sudah digunakan
     await CaptchaModel.deleteById(captchaId);
 
-    // Lanjutkan dengan proses login...
-    // Cari user by email
     const user = await UserModel.findByEmail(email);
     if (!user) {
       return res.status(401).json({
@@ -164,7 +162,7 @@ export const logout = (req, res) => {
       return res.status(500).json({ error: 'Failed to logout' });
     }
     
-    res.clearCookie('connect.sid');
+    res.clearCookie('connect.id');
     res.json({ message: 'Logout successful' });
   });
 };

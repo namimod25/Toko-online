@@ -10,7 +10,6 @@ router.post('/login', requireNoAuth, validateLoginInput, login);
 
 router.post('/logout', requireAuth, logout);
 
-
 router.get('/status', getAuthStatus);
 
 export default router;

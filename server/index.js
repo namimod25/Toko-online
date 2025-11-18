@@ -43,7 +43,6 @@ app.use(session(sessionConfig));
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE']
 }));
 
 app.use(express.json());
@@ -52,7 +51,7 @@ app.use(express.json());
 app.use(trackVisitor);
 
 
-app.use('/api/auth', authRoutes); // Semua auth routes di bawah /api/auth
+app.use('/api', authRoutes); // Semua auth routes di bawah /api/auth
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/landing', landingRoutes);
