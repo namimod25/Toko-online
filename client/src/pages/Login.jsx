@@ -90,7 +90,7 @@ const Login = () => {
       setErrors({})
 
       // Kirim data login termasuk captcha
-      const response = await api.post('/login', {
+      const response = await api.post('/auth/login', {
         email: formData.email, // Perbaiki: gunakan email bukan name
         password: formData.password,
         captchaId: captcha.id,
