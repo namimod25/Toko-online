@@ -37,7 +37,7 @@ const server = createServer(app);
 // Initialize socket.io
 initializeSocket(server);
 
-// ✅ PERBAIKI: Session middleware HARUS sebelum CORS
+
 app.use(session(sessionConfig));
 
 app.use(cors({

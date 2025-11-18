@@ -1,194 +1,71 @@
-import bcrypt from 'bcryptjs';
-import { UserModel } from '../models/User.js';
-import  CaptchaModel  from '../models/Captcha.js';
-import prisma from '../utils/database.js';
-import { registerSchema } from '../middleware/validation.js';
-import z from 'zod';
-import {logAudit, AUDIT_ACTIONS} from '../utils/auditLogger.js'
 
-export const register = async (req, res) => {
+import { login} from '../middleware/validation.js'
+
+export const login = async (req, res) => {
   try {
-    const validatedData = registerSchema.parse(req.body);
-    
-    const existingUser = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: validatedData.email }
-    });
+    })
 
-    if (existingUser) {
+    if (!user || !(await bcrypt.compare(validatedData.password, user.password))) {
       await logAudit(
-        AUDIT_ACTIONS.REGISTER,
+        AUDIT_ACTIONS.LOGIN_FAILED,
         null,
         validatedData.email,
-        'Registration failed - user already exists',
+        'Invalid login credentials with CAPTCHA',
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(401).json({ error: 'Invalid credentials' })
     }
 
-    const hashedPassword = await bcrypt.hash(validatedData.password, 12);
-
-    const user = await prisma.user.create({
-      data: {
-        name: validatedData.name,
-        email: validatedData.email,
-        password: hashedPassword,
-        role: validatedData.role
-      }
-    });
-
+    // Set session
     req.session.user = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role
-    };
+    }
 
-    // Audit log successful registration
+    // Configure session cookie based on remember me
+    if (validatedData.rememberMe) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days
+    } else {
+      req.session.cookie.expires = false
+    }
+
+    // Audit log successful login
     await logAudit(
-      AUDIT_ACTIONS.REGISTER,
+      AUDIT_ACTIONS.LOGIN,
       user.id,
       user.email,
-      'User registered successfully',
+      `User logged in successfully with CAPTCHA (Remember Me: ${validatedData.rememberMe})`,
       req.ip,
       req.get('User-Agent')
     )
 
-    res.status(201).json({
-      message: 'User created successfully',
+    res.json({
+      message: 'Login successful',
       user: req.session.user
-    });
+    })
+
   } catch (error) {
-    await logAudit(
-      AUDIT_ACTIONS.REGISTER,
-      null,
-      req.body.email,
-      `Registration error: ${error.message}`,
-      req.ip,
-      req.get('User-Agent')
-    )
-    
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
         error: 'Validation failed', 
         details: error.errors 
-      });
-    }
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-export const login = async (req, res) => {
-  try {
-    const { email, password, captchaId, captchaInput } = req.body;
-
-    // Validasi input yang diperlukan
-    if (!email || !password || !captchaId || !captchaInput) {
-      return res.status(400).json({
-        success: false,
-        message: 'Semua field harus diisi'
-      });
-    }
-
-    // Validasi format captchaId
-    if (typeof captchaId !== 'string' || captchaId.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'CAPTCHA ID tidak valid'
-      });
-    }
-
-    // Cari captcha di database
-    const captcha = await CaptchaModel.findById(captchaId);
-    if (!captcha) {
-      return res.status(400).json({
-        success: false,
-        message: 'CAPTCHA tidak valid atau telah kadaluarsa'
-      });
-    }
-
-    // Validasi captcha text
-    if (captcha.text !== captchaInput) {
-      // Hapus captcha yang sudah digunakan (opsional)
-      await CaptchaModel.deleteById(captchaId);
-      return res.status(400).json({
-        success: false,
-        message: 'CAPTCHA tidak sesuai'
-      });
-    }
-
-    // Hapus captcha yang sudah digunakan
-    await CaptchaModel.deleteById(captchaId);
-
-    const user = await UserModel.findByEmail(email);
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Email atau password salah'
-      });
-    }
-
-    // Verifikasi password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Email atau password salah'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Login berhasil',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
-
-export const logout = (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to logout' });
+      })
     }
     
-    res.clearCookie('connect.id');
-    res.json({ message: 'Logout successful' });
-  });
-};
-
-export const getAuthStatus = (req, res) => {
-  if (req.session.user) {
-    res.json({ 
-      authenticated: true, 
-      user: req.session.user 
-    });
-  } else {
-    res.json({ 
-      authenticated: false 
-    });
+    await logAudit(
+      AUDIT_ACTIONS.LOGIN_FAILED,
+      null,
+      req.body.email,
+      `Login error: ${error.message}`,
+      req.ip,
+      req.get('User-Agent')
+    )
+    
+    res.status(500).json({ error: 'Internal server error' })
   }
-};
-
-export const getProfile = async (req, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.session.user.id },
-      select: { id: true, name: true, email: true, role: true, createdAt: true }
-    });
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch user profile' });
-  }
-};
+}
