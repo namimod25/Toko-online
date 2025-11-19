@@ -1,63 +1,103 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/database.js';
-import { loginSchema, registerSchema } from '../middleware/validation.js';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod'; 
 
 export const register = async (req, res) => {
   try {
-    const validatedData = registerSchema.parse(req.body);
+    const { name, email, password } = req.body;
+
     
     const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email }
+      where: { email }
     });
 
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
     }
 
-    const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+    
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
-        name: validatedData.name,
-        email: validatedData.email,
-        password: hashedPassword,
-        role: validatedData.role
+        name,
+        email,
+        password: hashedPassword
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true
       }
     });
 
-    req.session.user = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    };
+   
+    const token = jwt.sign(
+      { userId: user.id }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
-      message: 'User created successfully',
-      user: req.session.user
+      success: true,
+      message: 'User registered successfully',
+      user,
+      token
     });
+
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: error.errors 
-      });
-    }
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
 };
 
 export const login = async (req, res) => {
   try {
-    const validatedData = loginSchema.parse(req.body);
+    const { email, password } = req.body; 
 
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false, 
+        message: 'Email and password are required'
+      });
+    }
+
+   
     const user = await prisma.user.findUnique({
-      where: { email: validatedData.email }
+      where: { email }
     });
 
-    if (!user || !(await bcrypt.compare(validatedData.password, user.password))) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
     }
+    
+    
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
 
     req.session.user = {
       id: user.id,
@@ -66,40 +106,59 @@ export const login = async (req, res) => {
       role: user.role
     };
 
+    const { password: _, ...userWithoutPassword } = user;
+
     res.json({
+      success: true, 
       message: 'Login successful',
-      user: req.session.user
+      user: userWithoutPassword, 
+      token 
     });
+
   } catch (error) {
+    console.error('Login error:', error);
+    
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: error.errors 
+      return res.status(400).json({
+        success: false,
+        message: error.errors[0].message
       });
     }
-    res.status(500).json({ error: 'Internal server error' });
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
 };
 
 export const logout = (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ error: 'Failed to logout' });
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to logout' 
+      });
     }
     
     res.clearCookie('connect.sid');
-    res.json({ message: 'Logout successful' });
+    res.json({ 
+      success: true,
+      message: 'Logout successful' 
+    });
   });
 };
 
 export const getAuthStatus = (req, res) => {
   if (req.session.user) {
     res.json({ 
+      success: true,
       authenticated: true, 
       user: req.session.user 
     });
   } else {
     res.json({ 
+      success: true,
       authenticated: false 
     });
   }
@@ -112,8 +171,14 @@ export const getProfile = async (req, res) => {
       select: { id: true, name: true, email: true, role: true, createdAt: true }
     });
 
-    res.json(user);
+    res.json({
+      success: true,
+      user
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch user profile' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch user profile' 
+    });
   }
 };

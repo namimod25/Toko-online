@@ -20,6 +20,7 @@ import { getAuthStatus } from './controllers/authController.js';
 import { logger } from './utils/logger.js';
 import {createServer} from 'http';
 import { initializeSocket } from './socket/socket.js';
+import { validateCaptcha } from './middleware/captchaValidation.js';
 
 dotenv.config();
 
@@ -42,6 +43,8 @@ app.use(session(sessionConfig));
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
+  methods: ['GET', 'POST', 'DELETE'],
+  allowedHeaders: ['content-Type','Authorization']
 }));
 
 app.use(express.json());
@@ -55,6 +58,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/landing', landingRoutes);
 app.use('/api/password', passwordRoutes);
+app.use('/api/captcha', validateCaptcha)
 
 
 app.get('/api/status', getAuthStatus);
@@ -68,7 +72,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// error handler route
+//  handler route
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });

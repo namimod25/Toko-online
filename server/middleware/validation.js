@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import Joi from 'joi';
 
 
 export const forgotPasswordSchema = z.object({
@@ -74,17 +75,38 @@ export const productSchema = z.object({
   category: z.string().min(1, 'Category is required')
 });
 
-export const validate = (schema) => (req, res, next) => {
-  try {
-    schema.parse(req.body);
-    next();
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: error.errors 
+
+
+export const validasiSchema = {
+  userRegistration: Joi.object({
+    name: Joi.string().min(2).max(50).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+    confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
+      'any.only': 'Passwords do not match'
+    }),
+    captcha: Joi.string().length(6).required().messages({
+      'string.length': 'Captcha must be exactly 6 characters'
+    })
+  }),
+
+  captchaValidation: Joi.object({
+    captchaText: Joi.string().length(6).required()
+  })
+};
+
+export const validate = (schema) => {
+  return (req, res, next) => {
+    const { error } = schema.validate(req.body, { abortEarly: false });
+    
+    if (error) {
+      const errorMessage = error.details.map(detail => detail.message).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: errorMessage
       });
     }
-    next(error);
-  }
+    
+    next();
+  };
 };
