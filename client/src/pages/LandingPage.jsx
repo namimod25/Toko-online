@@ -45,12 +45,12 @@ const LandingPage = () => {
 
       const [productsResponse, slidesResponse, categoriesResponse] = await Promise.all([
         axios.get('/api/landing/featured-products'),
-        axios.get('/api/landing/hero-slides'), // Update endpoint
+        axios.get('/api/landing/hero-slides'),
         axios.get('/api/landing/categories')
       ])
 
       setFeaturedProducts(productsResponse.data)
-      setHeroSlides(slidesResponse.data) // Data dari database
+      setHeroSlides(slidesResponse.data)
       setCategories(categoriesResponse.data)
 
     } catch (error) {

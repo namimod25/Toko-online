@@ -3,18 +3,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { registerSchema } from '../../schemas/authSchema'
 import { Eye, EyeOff, User, Mail, Lock } from 'lucide-react'
+import Captcha from '../components/UI/Captcha'
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    captcha: ''
   })
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [regenerateCaptcha, setRegenerateCaptcha] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
 
@@ -32,6 +35,19 @@ const Register = () => {
     }
   }
 
+  const handleCaptchaChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      captcha: value
+    }))
+    if (errors.captcha) {
+      setErrors(prev => ({
+        ...prev,
+        captcha: ''
+      }))
+    }
+  }
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
   }
@@ -42,18 +58,20 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Form submitted with data:', formData)
+     console.log('Form submitted with data:', formData)
+    console.log('Captcha value:', formData.captcha, 'Length:', formData.captcha?.length) 
     setIsLoading(true)
 
     try {
-      // Validasi dengan Zod
+      
       registerSchema.parse(formData)
+      const validatedData = registerSchema.parse(formData)
       setErrors({})
 
       console.log('Validation passed, calling register function...')
 
-      // Panggil register function dari AuthContext
-      const result = await register(formData)
+      // Panggil register function dari AuthContext dengan data termasuk captcha
+      const result = await register(validatedData)
       console.log('Register result:', result)
 
       if (result.success) {
@@ -62,6 +80,8 @@ const Register = () => {
       } else {
         console.log('Registration failed with error:', result.error)
         setErrors({ submit: result.error })
+        
+        setRegenerateCaptcha(prev => !prev)
       }
     } catch (error) {
       console.error('Validation error:', error)
@@ -72,6 +92,7 @@ const Register = () => {
         })
         setErrors(newErrors)
       }
+      setRegenerateCaptcha(prev => !prev)
     } finally {
       setIsLoading(false)
     }
@@ -250,6 +271,16 @@ const Register = () => {
                     {errors.confirmPassword}
                   </p>
                 )}
+              </div>
+
+              {/* CAPTCHA Component */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <Captcha
+                  onCaptchaChange={handleCaptchaChange}
+                  value={formData.captcha}
+                  error={errors.captcha}
+                  regenerateCaptcha={regenerateCaptcha}
+                />
               </div>
 
               {/* Error Message */}

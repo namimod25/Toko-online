@@ -42,27 +42,29 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const register = async (userData) => {
+   const register = async (userData) => {
     try {
-      console.log('Registering user with data:', userData)
+      setLoading(true);
+      
+      const response = await axios.post('/api/register', userData, {
+        withCredentials: true
+      });
 
-      const response = await axios.post('/api/register', {
-        name: userData.name,
-        email: userData.email,
-        password: userData.password,
-        role: 'CUSTOMER' // Default role
-      })
-
-      console.log('Registration response:', response.data)
-      setUser(response.data.user)
-
-      return { success: true }
-    } catch (error) {
-      console.error('Registration error:', error)
-      return {
-        success: false,
-        error: error.response?.data?.error || error.response?.data?.details?.[0]?.message || 'Registration failed'
+      if (response.data.success) {
+        // Simpan user dan token
+        setUser(response.data.user);
+        localStorage.setItem('token', response.data.token);
+        
+        return { success: true, user: response.data.user };
+      } else {
+        return { success: false, error: response.data.message };
       }
+    } catch (error) {
+      console.error('Registration error:', error);
+      const errorMessage = error.response?.data?.message || 'Registration failed';
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   }
 

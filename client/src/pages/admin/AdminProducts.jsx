@@ -181,7 +181,7 @@ const AdminProducts = () => {
       }
 
       if (editingProduct) {
-        // Update existing product
+        // Update product
         await axios.put(`/api/admin/products/${editingProduct.id}`, productData)
         showNotification('Product updated successfully!')
       } else {
@@ -191,7 +191,7 @@ const AdminProducts = () => {
       }
       
       resetForm()
-      // Tidak perlu fetchProducts() karena sudah realtime
+      // fetchProducts realtime
     } catch (error) {
       console.error('Error saving product:', error)
       const errorMessage = error.response?.data?.error || error.response?.data?.details?.[0]?.message || 'Failed to save product'
@@ -235,8 +235,7 @@ const AdminProducts = () => {
 
     try {
       await axios.delete(`/api/admin/products/${productId}`)
-      // Product akan otomatis terhapus dari state via socket event
-      // Tidak perlu fetchProducts() lagi
+  
     } catch (error) {
       console.error('Error deleting product:', error)
       alert('Failed to delete product')
@@ -250,7 +249,7 @@ const AdminProducts = () => {
       await axios.patch(`/api/admin/products/${productId}/stock`, {
         stock: newStock
       })
-      // Stock akan otomatis update via socket event
+     
     } catch (error) {
       console.error('Error updating stock:', error)
       alert('Failed to update stock')
