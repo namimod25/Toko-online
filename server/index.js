@@ -13,7 +13,6 @@ import productRoutes from './routes/products.js';
 import adminRoutes from './routes/admin.js';
 import landingRoutes from './routes/landing.js'
 import passwordRoutes from "./routes/password.js"
-import captchaRoutes from './routes/captcha.js';
 
 // Import middleware
 import { trackVisitor } from './middleware/visitorTracker.js';
@@ -51,12 +50,11 @@ app.use(express.json());
 app.use(trackVisitor);
 
 
-app.use('/api', authRoutes); // Semua auth routes di bawah /api/auth
+app.use('/api/', authRoutes); 
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/landing', landingRoutes);
 app.use('/api/password', passwordRoutes);
-app.use('/api/captcha', captchaRoutes);
 
 
 app.get('/api/status', getAuthStatus);

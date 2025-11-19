@@ -1,14 +1,19 @@
-import { loginWithCaptcha } from '../controllers/authController.js'
-import { verifyRecaptchaMiddleware } from '../middleware/recaptcha.js'
-import { validate } from '../middleware/validation.js'
-import { loginWithCaptchaSchema } from '../middleware/validation.js'
+import express from 'express';
+import { 
+  register, 
+  login, 
+  logout, 
+  getAuthStatus, 
+  getProfile 
+} from '../controllers/authController.js';
+import { requireAuth } from '../middleware/auth.js';
 
-// Tambahkan route login dengan CAPTCHA
-router.post('/login-with-captcha', 
-  validate(loginWithCaptchaSchema), 
-  verifyRecaptchaMiddleware, 
-  loginWithCaptcha
-)
+const router = express.Router();
 
-// Keep existing login route for backward compatibility
-router.post('/login', login)
+router.post('/register', register);
+router.post('/login', login);
+router.post('/logout', logout);
+router.get('/auth/status', getAuthStatus);
+router.get('/profile', requireAuth, getProfile);
+
+export default router;
