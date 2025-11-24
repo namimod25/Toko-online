@@ -15,12 +15,13 @@ export const initializeSocket = (server) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id)
 
+    // Join room untuk admin
     socket.on('join-admin-room', () => {
       socket.join('admin-room')
       console.log('Admin joined admin room:', socket.id)
     })
 
-    // room untuk product updates
+    // Join room untuk product updates
     socket.on('join-product-room', (productId) => {
       socket.join(`product-${productId}`)
       console.log(`User joined product room: product-${productId}`)
@@ -41,7 +42,7 @@ export const getIO = () => {
   return io
 }
 
-
+// Helper functions untuk emit events
 export const emitProductUpdate = (product) => {
   const io = getIO()
   io.emit('product-updated', product)

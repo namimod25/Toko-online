@@ -1,4 +1,4 @@
-import * as bcryptjs from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { UserModel } from '../models/User.js';
 import prisma from '../utils/database.js';
 import { registerSchema, loginSchema } from '../middleware/validation.js';
@@ -25,7 +25,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    const hashedPassword = await bcryptjs.hash(validatedData.password, 12);
+    const hashedPassword = await bcrypt.hash(validatedData.password, 12);
 
     const user = await prisma.user.create({
       data: {
@@ -43,7 +43,7 @@ export const register = async (req, res) => {
       role: user.role
     };
 
-    // Audit log successful registration
+    // Audit log successful register
     await logAudit(
       AUDIT_ACTIONS.REGISTER,
       user.id,
@@ -137,7 +137,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Set session
     req.session.user = {
       id: user.id,
       name: user.name,
@@ -185,7 +184,7 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  
+  // destroy
   if (req.session.user) {
     logAudit(
       AUDIT_ACTIONS.LOGOUT,

@@ -1,6 +1,6 @@
 
 const sessionConfig = {
-  secret: process.env.JWT_SECRET || '',
+  secret: process.env.JWT_SECRET || '5001',
   resave: false,
   saveUninitialized: false,
   cookie: {

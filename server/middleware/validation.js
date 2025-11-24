@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import Joi from 'joi';
 
 
 export const forgotPasswordSchema = z.object({
@@ -26,34 +25,6 @@ export const changePasswordSchema = z.object({
 })
 
 
-export const validateLoginInput = (req, res, next) => {
-  const { email, password, captchaId, captchaInput } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Username and password are required'
-    });
-  }
-
-  if (!captchaId || !captchaInput) {
-    return res.status(400).json({
-      success: false,
-      message: 'CAPTCHA is required'
-    });
-  }
-
-   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Format email tidak valid'
-    });
-  }
-
-  next();
-};
-
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
@@ -75,38 +46,17 @@ export const productSchema = z.object({
   category: z.string().min(1, 'Category is required')
 });
 
-
-
-export const validasiSchema = {
-  userRegistration: Joi.object({
-    name: Joi.string().min(2).max(50).required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().min(6).required(),
-    confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
-      'any.only': 'Passwords do not match'
-    }),
-    captcha: Joi.string().length(6).required().messages({
-      'string.length': 'Captcha must be exactly 6 characters'
-    })
-  }),
-
-  captchaValidation: Joi.object({
-    captchaText: Joi.string().length(6).required()
-  })
-};
-
-export const validate = (schema) => {
-  return (req, res, next) => {
-    const { error } = schema.validate(req.body, { abortEarly: false });
-    
-    if (error) {
-      const errorMessage = error.details.map(detail => detail.message).join(', ');
-      return res.status(400).json({
-        success: false,
-        message: errorMessage
+export const validate = (schema) => (req, res, next) => {
+  try {
+    schema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: error.errors 
       });
     }
-    
-    next();
-  };
+    next(error);
+  }
 };

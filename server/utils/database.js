@@ -1,6 +1,6 @@
-import  {PrismaClient}  from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
- const prisma = new PrismaClient();
+const prisma = new PrismaClient();
 
 export const connectDB = async () => {
   try {
@@ -11,4 +11,5 @@ export const connectDB = async () => {
     process.exit(1);
   }
 };
-export default prisma
+
+export default prisma;
