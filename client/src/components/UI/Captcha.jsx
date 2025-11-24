@@ -27,7 +27,6 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
       }
     } catch (error) {
       console.error('Failed to generate captcha:', error);
-      // Fallback: generate client-side captcha jika API gagal
       generateFallbackCaptcha();
     } finally {
       setIsLoading(false);
@@ -35,7 +34,7 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
   };
 
   const generateFallbackCaptcha = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let text = '';
     for (let i = 0; i < 6; i++) {
       text += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -63,14 +62,13 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
       return;
     }
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+   
     ctx.fillStyle = '#f8f9fa';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Add some noise lines
+    
     for (let i = 0; i < 8; i++) {
       ctx.strokeStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100}, ${Math.random() * 100}, 0.3)`;
       ctx.beginPath();
@@ -79,7 +77,7 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
       ctx.stroke();
     }
     
-    // Add noise dots
+    
     for (let i = 0; i < 50; i++) {
       ctx.fillStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100}, ${Math.random() * 100}, 0.2)`;
       ctx.beginPath();
@@ -93,7 +91,7 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
       ctx.fill();
     }
     
-    // Draw text dengan efek distorsi
+    
     ctx.font = 'bold 24px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -103,10 +101,10 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
       const x = 25 + i * 20;
       const y = 20 + Math.random() * 8;
       
-      // Random color untuk setiap karakter
+      
       ctx.fillStyle = `rgb(${50 + Math.random() * 150}, ${50 + Math.random() * 150}, ${50 + Math.random() * 150})`;
       
-      // Random rotation
+      
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate((Math.random() - 0.5) * 0.4);
@@ -132,9 +130,13 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
   };
 
   const handleInputChange = (e) => {
-   const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-   
-    onCaptchaChange(value);
+    const value = e.target.value;
+    
+    // Hanya huruf dan angka, tidak auto uppercase
+    const filteredValue = value.replace(/[^A-Za-z0-9]/g, '');
+    
+    console.log('Captcha input changed:', filteredValue);
+    onCaptchaChange(filteredValue);
   };
 
   return (
@@ -177,13 +179,13 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
           type="text"
           value={value}
           onChange={handleInputChange}
-          placeholder="Type the code above"
-          className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 uppercase font-mono ${
+          placeholder="Type the code exactly as shown"
+          className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 font-mono ${
             error ? 'border-red-500 ring-2 ring-red-200 bg-red-50' : 'border-gray-300'
           }`}
           maxLength={6}
           autoComplete="off"
-          style={{ letterSpacing: '2px' }}
+          style={{ letterSpacing: '1px', textTransform: 'none' }} // Jangan auto uppercase
         />
         {error && (
           <p className="mt-2 text-sm text-red-600 flex items-center">
@@ -193,12 +195,17 @@ const Captcha = ({ onCaptchaChange, value, error, regenerateCaptcha }) => {
             {error}
           </p>
         )}
+        
+        {/* Instruction */}
+        <div className="mt-1 text-xs text-gray-500">
+          Type the code exactly as shown above (case sensitive)
+        </div>
       </div>
 
       {/* Debug Info (Hapus di production) */}
       {process.env.NODE_ENV === 'development' && captchaText && (
         <div className="text-xs text-gray-400 bg-gray-100 p-2 rounded">
-      
+          Debug: Captcha text = "{captchaText}"
         </div>
       )}
     </div>

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { loginSchema } from '../../schemas/authSchema'
+// import axios from 'axios'
+// import Captcha from '../components/Captcha'
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -54,9 +56,9 @@ const Login = () => {
         setMessage('Login berhasil!')
         // Redirect berdasarkan role atau ke halaman default
         if (result.user?.role === 'ADMIN') {
-          navigate('/admin/dashboard')
+          navigate('/')
         } else {
-          navigate('/dashboard')
+          navigate('/admin/dashboard')
         }
       } else {
         setErrors({ submit: result.error })
@@ -65,7 +67,7 @@ const Login = () => {
 
     } catch (error) {
       if (error.errors) {
-        // Error validasi Zod
+        //  validasi Zod
         const newErrors = {}
         error.errors.forEach(err => {
           newErrors[err.path[0]] = err.message

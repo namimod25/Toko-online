@@ -3,36 +3,27 @@ import axios from 'axios'
 
 const AuthContext = createContext()
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [logoutState, setLogoutState] = useState({
+    isLoggingOut: false,
+    isSuccess: false,
+    message: ''
+  })
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      // Verify token with server
-      verifyToken()
-    } else {
-      setLoading(false)
-    }
-  }, []);
+    checkAuthStatus()
+  }, [])
 
-  const verifyToken = async () => {
+  const checkAuthStatus = async () => {
     try {
-      const response = await axios.get('/api/status')
-      setUser(response.data.user)
+      const response = await axios.get('/api/auth/status')
+      if (response.data.authenticated) {
+        setUser(response.data.user)
+      }
     } catch (error) {
-      localStorage.removeItem('token')
-      delete axios.defaults.headers.common['Authorization']
+      console.error('Auth status check failed:', error)
     } finally {
       setLoading(false)
     }
@@ -41,43 +32,81 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await axios.post('/api/login', { email, password })
-      const { user, token } = response.data
-      
-      localStorage.setItem('token', token)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      setUser(user)
-      
+      setUser(response.data.user)
       return { success: true }
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Login failed' 
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Login failed'
       }
     }
   }
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/register', userData)
-      const { token, user } = response.data
-      
-      localStorage.setItem('token', token)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      setUser(user)
-      
+      console.log('Registering user with data:', userData)
+
+      const response = await axios.post('/api/register', {
+        name: userData.name,
+        email: userData.email,
+        password: userData.password,
+        role: 'CUSTOMER' // Default role
+      })
+
+      console.log('Registration response:', response.data)
+      setUser(response.data.user)
+
       return { success: true }
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Registration failed' 
+      console.error('Registration error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.details?.[0]?.message || 'Registration failed'
       }
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    delete axios.defaults.headers.common['Authorization']
-    setUser(null)
+  const logout = async () => {
+    setLogoutState({
+      isLoggingOut: true,
+      isSuccess: false,
+      message: ''
+    })
+
+    try {
+      await axios.post('/api/logout')
+
+      setLogoutState({
+        isLoggingOut: false,
+        isSuccess: true,
+        message: '√ Logout successful'
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      setUser(null)
+      setLogoutState({
+        isLoggingOut: false,
+        isSuccess: false,
+        message: ''
+      })
+
+    } catch (error) {
+      console.error('Logout error:', error)
+      setLogoutState({
+        isLoggingOut: false,
+        isSuccess: false,
+        message: 'Logout failed. Please try again.'
+      })
+
+      setTimeout(() => {
+        setLogoutState({
+          isLoggingOut: false,
+          isSuccess: false,
+          message: ''
+        })
+      }, 2000)
+    }
   }
 
   const value = {
@@ -85,7 +114,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    loading
+    loading,
+    logoutState
   }
 
   return (
@@ -93,4 +123,12 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   )
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

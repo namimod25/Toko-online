@@ -45,12 +45,12 @@ const LandingPage = () => {
 
       const [productsResponse, slidesResponse, categoriesResponse] = await Promise.all([
         axios.get('/api/landing/featured-products'),
-        axios.get('/api/landing/hero-slides'),
+        axios.get('/api/landing/hero-slides'), // Update endpoint
         axios.get('/api/landing/categories')
       ])
 
       setFeaturedProducts(productsResponse.data)
-      setHeroSlides(slidesResponse.data)
+      setHeroSlides(slidesResponse.data) // Data dari database
       setCategories(categoriesResponse.data)
 
     } catch (error) {
@@ -85,6 +85,29 @@ const LandingPage = () => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
     return matchesSearch && matchesCategory
   })
+
+  const features = [
+    {
+      icon: <Truck className="h-8 w-8" />,
+      title: "Free Shipping",
+      description: "Free delivery for orders above Rp 500.000"
+    },
+    {
+      icon: <Shield className="h-8 w-8" />,
+      title: "Secure Payment",
+      description: "100% secure payment processing"
+    },
+    {
+      icon: <ShoppingBag className="h-8 w-8" />,
+      title: "Easy Returns",
+      description: "30-day return policy"
+    },
+    {
+      icon: <Star className="h-8 w-8" />,
+      title: "Quality Guarantee",
+      description: "Authentic products with warranty"
+    }
+  ]
 
   return (
     <div className="min-h-screen">
@@ -152,6 +175,26 @@ const LandingPage = () => {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className="text-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition duration-200"
+              >
+                <div className="text-blue-600 mb-4 flex justify-center">
+                  {feature.icon}
+                </div>
+                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                <p className="text-gray-600">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Featured Products Section */}
