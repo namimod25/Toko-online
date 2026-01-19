@@ -1,10 +1,7 @@
 #modules
+.continue
+.vscode
 node_modules
-*prisam
-
-# Keep environment variables out of version control
-.env
 
 #other
-jconfig.json
-
+package-lock.json
