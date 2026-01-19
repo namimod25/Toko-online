@@ -1,86 +1,91 @@
 import prisma from '../utils/database.js'
-import bcryptjs from 'bcryptjs'
-
+import bcrypt from 'bcryptjs'
 import { 
   generateResetToken, 
   generateTokenExpiry, 
   hashToken, 
-  verifyToken 
+  verifyToken,
+  validasiTokenFormat,
+  parseTokenFromRequest
 } from '../utils/resetPw.js'
-import { sendPasswordResetEmail, sendPasswordChangedEmail } from '../utils/emailServices.js'
 import { logAudit, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 
-// Request password reset
+// Request password reset - generate token
 export const forgotPassword = async (req, res) => {
   try {
+    console.log('=== FORGOT PASSWORD REQUEST ===')
     const { email } = req.body
+    console.log('Email:', email)
 
     // Cari user by email
     const user = await prisma.user.findUnique({
       where: { email }
     })
 
-    // Always return success even if email doesn't exist (for security)
     if (!user) {
-      console.log(`Password reset requested for non-existent email: ${email}`)
+      console.log('User not found for email:', email)
       await logAudit(
-        AUDIT_ACTIONS.PASSWORD_RESET_REQUEST,
+        AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
         email,
-        'Password reset requested for non-existent email',
+        'User not found',
         req.ip,
         req.get('User-Agent')
       )
-      return res.json({ 
-        message: 'If the email exists, a password reset link has been sent' 
-      })
+      return res.status(404).json({ error: 'Email tidak ditemukan' })
     }
 
+    console.log('User found:', user.id, user.email)
+
     // Generate reset token
-    const resetToken = generateResetToken()
+    const rawToken = generateResetToken()
     const tokenExpiry = generateTokenExpiry()
+    const hashedToken = await hashToken(rawToken)
+
+    console.log('Generated token info:')
+    console.log('- Raw token:', rawToken)
+    console.log('- Hashed token (first 20 chars):', hashedToken.substring(0, 20))
+    console.log('- Expiry:', tokenExpiry)
 
     // Hapus existing reset tokens untuk email ini
-    await prisma.passwordReset.deleteMany({
+    const deleted = await prisma.passwordReset.deleteMany({
       where: { email }
     })
+    console.log('Deleted existing tokens:', deleted.count)
 
     // Simpan reset token di database
-    await prisma.passwordReset.create({
+    const resetRecord = await prisma.passwordReset.create({
       data: {
         email,
-        token: hashToken(resetToken),
+        token: hashedToken,
         expiresAt: tokenExpiry
       }
     })
 
-    // Kirim email reset password
-    const emailSent = await sendPasswordResetEmail(email, resetToken)
+    console.log('Saved reset record:', {
+      id: resetRecord.id,
+      email: resetRecord.email,
+      expiresAt: resetRecord.expiresAt,
+      tokenLength: hashedToken.length
+    })
 
-    if (!emailSent) {
-      await logAudit(
-        AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
-        user.id,
-        user.email,
-        'Failed to send reset email',
-        req.ip,
-        req.get('User-Agent')
-      )
-      return res.status(500).json({ error: 'Failed to send reset email' })
-    }
+    // Format token untuk response (tambahkan prefix)
+    const formattedToken = validasiTokenFormat(rawToken)
 
-    // Log audit
     await logAudit(
       AUDIT_ACTIONS.PASSWORD_RESET_REQUEST,
       user.id,
       user.email,
-      'Password reset requested successfully',
+      'Password reset token generated',
       req.ip,
       req.get('User-Agent')
     )
 
     res.json({ 
-      message: 'If the email exists, a password reset link has been sent' 
+      message: 'Reset token berhasil dibuat',
+      resetToken: formattedToken,
+      email: email,
+      expiresAt: tokenExpiry.toISOString()
     })
 
   } catch (error) {
@@ -93,34 +98,60 @@ export const forgotPassword = async (req, res) => {
       req.ip,
       req.get('User-Agent')
     )
-    res.status(500).json({ error: 'Failed to process password reset request' })
+    res.status(500).json({ error: 'Gagal memproses permintaan reset password' })
   }
 }
 
 // Reset password dengan token
 export const resetPassword = async (req, res) => {
   try {
-    const { token, email, password } = req.body
+    console.log('=== RESET PASSWORD REQUEST ===')
+    
+    let { token, email, password } = req.body
+    console.log('Request data:', { 
+      token: token ? `${token.substring(0, 20)}...` : 'empty',
+      email,
+      passwordLength: password?.length 
+    })
 
-    // Validasi token
+    // Parse token (remove prefix jika ada)
+    token = parseTokenFromRequest(token)
+    
+
+    if (!token || !email || !password) {
+      console.log('Missing required fields')
+      return res.status(400).json({ error: 'Token, email, dan password diperlukan' })
+    }
+
+    // Validasi token dari database
     const resetRecord = await prisma.passwordReset.findFirst({
       where: { email }
     })
+
+    console.log('Reset record from DB:', resetRecord ? {
+      id: resetRecord.id,
+      email: resetRecord.email,
+      used: resetRecord.used,
+      expiresAt: resetRecord.expiresAt,
+      tokenLength: resetRecord.token?.length,
+      currentTime: new Date().toISOString()
+    } : 'Not found')
 
     if (!resetRecord) {
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
         email,
-        'Invalid or expired reset token',
+        'Reset token not found in database',
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'Invalid or expired reset token' })
+      return res.status(400).json({ error: 'Token reset tidak ditemukan' })
     }
 
     // Cek jika token sudah digunakan
     if (resetRecord.used) {
+      console.log('Token already used')
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
@@ -129,11 +160,20 @@ export const resetPassword = async (req, res) => {
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'Reset token has already been used' })
+      return res.status(400).json({ error: 'Token reset sudah digunakan' })
     }
 
     // Cek jika token expired
-    if (new Date() > resetRecord.expiresAt) {
+    const now = new Date()
+    const expiryDate = new Date(resetRecord.expiresAt)
+    console.log('Token expiry check:', {
+      now: now.toISOString(),
+      expiry: expiryDate.toISOString(),
+      isExpired: now > expiryDate
+    })
+
+    if (now > expiryDate) {
+      console.log('Token expired')
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
@@ -142,20 +182,28 @@ export const resetPassword = async (req, res) => {
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'Reset token has expired' })
+      return res.status(400).json({ error: 'Token reset sudah kadaluarsa' })
     }
 
     // Verify token
-    if (!verifyToken(token, resetRecord.token)) {
+    console.log('Verifying token...')
+    const isTokenValid = await verifyToken(token, resetRecord.token)
+    console.log('Token verification result:', isTokenValid)
+
+    if (!isTokenValid) {
+      console.log('Token verification failed')
+      console.log('Input token (first 20):', token.substring(0, 20))
+      console.log('DB token (first 20):', resetRecord.token.substring(0, 20))
+      
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
         email,
-        'Invalid reset token',
+        'Token verification failed',
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'Invalid reset token' })
+      return res.status(400).json({ error: 'Token reset tidak valid' })
     }
 
     // Cari user
@@ -164,6 +212,7 @@ export const resetPassword = async (req, res) => {
     })
 
     if (!user) {
+      console.log('User not found')
       await logAudit(
         AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
         null,
@@ -172,11 +221,13 @@ export const resetPassword = async (req, res) => {
         req.ip,
         req.get('User-Agent')
       )
-      return res.status(400).json({ error: 'User not found' })
+      return res.status(400).json({ error: 'User tidak ditemukan' })
     }
 
+    console.log('User found:', user.id, user.email)
+
     // Hash new password
-    const hashedPassword = await bcryptjs.hash(password, 12)
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     // Update user password
     await prisma.user.update({
@@ -195,9 +246,6 @@ export const resetPassword = async (req, res) => {
       where: { email }
     })
 
-    // Kirim notification email
-    await sendPasswordChangedEmail(email)
-
     // Log audit
     await logAudit(
       AUDIT_ACTIONS.PASSWORD_RESET_SUCCESS,
@@ -208,7 +256,12 @@ export const resetPassword = async (req, res) => {
       req.get('User-Agent')
     )
 
-    res.json({ message: 'Password has been reset successfully' })
+    console.log('Password reset successful for user:', user.email)
+
+    res.json({ 
+      success: true,
+      message: 'Password berhasil direset' 
+    })
 
   } catch (error) {
     console.error('Reset password error:', error)
@@ -220,111 +273,153 @@ export const resetPassword = async (req, res) => {
       req.ip,
       req.get('User-Agent')
     )
-    res.status(500).json({ error: 'Failed to reset password' })
+    res.status(500).json({ error: 'Gagal mereset password' })
   }
 }
 
-// Change password (untuk logged-in users)
-export const changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body
-    const userId = req.session.user.id
-
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' })
-    }
-
-    // Verify current password
-    const isCurrentPasswordValid = await bcryptjs.compare(currentPassword, user.password)
-    if (!isCurrentPasswordValid) {
-      await logAudit(
-        AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
-        userId,
-        user.email,
-        'Current password incorrect',
-        req.ip,
-        req.get('User-Agent')
-      )
-      return res.status(400).json({ error: 'Current password is incorrect' })
-    }
-
-    // Hash new password
-    const hashedPassword = await bcryptjs.hash(newPassword, 12)
-
-    // Update password
-    await prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedPassword }
-    })
-
-    // Kirim notification email
-    await sendPasswordChangedEmail(user.email)
-
-    // Log audit
-    await logAudit(
-      AUDIT_ACTIONS.PASSWORD_CHANGED,
-      userId,
-      user.email,
-      'Password changed successfully',
-      req.ip,
-      req.get('User-Agent')
-    )
-
-    res.json({ message: 'Password has been changed successfully' })
-
-  } catch (error) {
-    console.error('Change password error:', error)
-    await logAudit(
-      AUDIT_ACTIONS.PASSWORD_RESET_FAILED,
-      req.session.user.id,
-      req.session.user.email,
-      `Error: ${error.message}`,
-      req.ip,
-      req.get('User-Agent')
-    )
-    res.status(500).json({ error: 'Failed to change password' })
-  }
-}
-
-// Validasi reset token
+// Validate reset token
 export const validateResetToken = async (req, res) => {
   try {
-    const { token, email } = req.query
+    console.log('=== VALIDATE TOKEN REQUEST ===')
+    
+    let { token, email } = req.query
+    console.log('Validation request:', { 
+      token: token ? `${token.substring(0, 20)}...` : 'empty',
+      email 
+    })
 
     if (!token || !email) {
-      return res.status(400).json({ error: 'Token and email are required' })
+      console.log('Missing token or email')
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token dan email diperlukan' 
+      })
     }
+
+    // Parse token
+    token = parseTokenFromRequest(token)
+    console.log('Parsed token for validation:', token.substring(0, 20) + '...')
 
     const resetRecord = await prisma.passwordReset.findFirst({
       where: { email }
     })
 
+    console.log('Reset record found:', !!resetRecord)
+
     if (!resetRecord) {
-      return res.status(400).json({ valid: false, error: 'Invalid reset token' })
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token reset tidak ditemukan' 
+      })
     }
 
-    // Cek kondisi
+    // Cek berbagai kondisi
     if (resetRecord.used) {
-      return res.status(400).json({ valid: false, error: 'Token has already been used' })
+      console.log('Token already used')
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token sudah digunakan' 
+      })
     }
 
-    if (new Date() > resetRecord.expiresAt) {
-      return res.status(400).json({ valid: false, error: 'Token has expired' })
+    const now = new Date()
+    const expiryDate = new Date(resetRecord.expiresAt)
+    
+    if (now > expiryDate) {
+      console.log('Token expired')
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token sudah kadaluarsa' 
+      })
     }
 
-    if (!verifyToken(token, resetRecord.token)) {
-      return res.status(400).json({ valid: false, error: 'Invalid token' })
+    // Verify token
+    const isTokenValid = await verifyToken(token, resetRecord.token)
+    console.log('Token validation result:', isTokenValid)
+
+    if (!isTokenValid) {
+      console.log('Token verification failed')
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token tidak valid' 
+      })
     }
 
-    res.json({ valid: true })
+    console.log('Token is valid')
+    res.json({ 
+      valid: true,
+      email,
+      expiresAt: resetRecord.expiresAt 
+    })
 
   } catch (error) {
     console.error('Validate token error:', error)
-    res.status(500).json({ error: 'Failed to validate token' })
+    res.status(500).json({ 
+      valid: false,
+      error: 'Gagal memvalidasi token' 
+    })
+  }
+}
+
+// Verify reset token
+export const verifyResetToken = async (req, res) => {
+  try {
+    const { token, email } = req.body
+
+    // Validasi format token
+    if (!validasiTokenFormat(token)) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token harus berupa 6 digit angka' 
+      })
+    }
+
+    // Validasi token di database
+    const resetRecord = await prisma.passwordReset.findFirst({
+      where: { email }
+    })
+
+    if (!resetRecord) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token tidak valid atau sudah kadaluarsa' 
+      })
+    }
+
+    // Cek jika token sudah digunakan
+    if (resetRecord.used) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token sudah digunakan' 
+      })
+    }
+
+    // Cek jika token expired
+    if (new Date() > resetRecord.expiresAt) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token sudah kadaluarsa' 
+      })
+    }
+
+    // Verify token
+    if (!verifyToken(token, resetRecord.token)) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Token tidak valid' 
+      })
+    }
+
+    res.json({ 
+      valid: true,
+      message: 'Token valid' 
+    })
+
+  } catch (error) {
+    console.error('Verify token error:', error)
+    res.status(500).json({ 
+      valid: false,
+      error: 'Gagal memverifikasi token' 
+    })
   }
 }

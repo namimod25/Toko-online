@@ -1,14 +1,16 @@
 import bcrypt from 'bcryptjs';
-import { UserModel } from '../models/User.js';
+// import { UserModel } from '../models/User.js';
 import prisma from '../utils/database.js';
 import { registerSchema, loginSchema } from '../middleware/validation.js';
 import z from 'zod';
 import { logAudit, AUDIT_ACTIONS } from '../utils/auditLogger.js';
+import { captchaService } from '../utils/captcha.js';
+
 
 export const register = async (req, res) => {
   try {
     const validatedData = registerSchema.parse(req.body);
-    
+
     const existingUser = await prisma.user.findUnique({
       where: { email: validatedData.email }
     });
@@ -18,11 +20,11 @@ export const register = async (req, res) => {
         AUDIT_ACTIONS.REGISTER,
         null,
         validatedData.email,
-        'Registration failed - user already exists',
+        'Register failed - user already exist',
         req.ip,
-        req.get('User-Agent')
-      );
-      return res.status(400).json({ error: 'User already exists' });
+        req.get('user-agent')
+      )
+      return res.status(400).json({ error: 'User already exist' });
     }
 
     const hashedPassword = await bcrypt.hash(validatedData.password, 12);
@@ -42,149 +44,152 @@ export const register = async (req, res) => {
       email: user.email,
       role: user.role
     };
-
-    // Audit log successful register
     await logAudit(
       AUDIT_ACTIONS.REGISTER,
       user.id,
       user.email,
-      'User registered successfully',
+      'User register succes',
       req.ip,
-      req.get('User-Agent')
-    );
+      req.get('user-Agent')
+    )
 
     res.status(201).json({
       message: 'User created successfully',
       user: req.session.user
     });
+
   } catch (error) {
-    await logAudit(
-      AUDIT_ACTIONS.REGISTER,
-      null,
-      req.body.email,
-      `Registration error: ${error.message}`,
-      req.ip,
-      req.get('User-Agent')
-    );
-    
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: error.errors 
-      });
+      await logAudit(
+        AUDIT_ACTIONS.REGISTER,
+        null,
+        req.body.email,
+        `Registration error: ${error.message}`,
+        req.ip,
+        req.get('User-agent')
+      )
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          detals: error.errors
+        });
+      }
+      res.status(500).json({ error: 'Internal server error' });
     }
-    res.status(500).json({ error: 'Internal server error' });
+
   }
-};
+}
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    console.log('Login attempt for email:', req.body.email)
 
-    
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email dan password harus diisi'
-      });
-    }
+    const validatedData = loginSchema.parse(req.body)
+    const { rememberMe = false, captchaId, captchaAnswer } = req.body
 
-    
-    try {
-      loginSchema.parse({ email, password });
-    } catch (validationError) {
-      if (validationError instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validasi gagal',
-          errors: validationError.errors
-        });
-      }
-    }
-
-    
-    const user = await UserModel.findByEmail(email);
-    if (!user) {
+    // Validate CAPTCHA
+    const captchaValidation = captchaService.validateCaptcha(captchaId, captchaAnswer)
+    if (!captchaValidation.valid) {
+      console.log('CAPTCHA validation failed:', captchaValidation.error)
       await logAudit(
-        AUDIT_ACTIONS.LOGIN,
+        AUDIT_ACTIONS.LOGIN_FAILED,
         null,
-        email,
-        'Login failed - user not found',
+        validatedData.email,
+        `CAPTCHA validation failed: ${captchaValidation.error}`,
         req.ip,
         req.get('User-Agent')
-      );
-      
-      return res.status(401).json({
-        success: false,
-        message: 'Email atau password salah'
-      });
+      )
+      return res.status(400).json({ error: captchaValidation.error || 'Invalid CAPTCHA' })
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    const user = await prisma.user.findUnique({
+      where: { email: validatedData.email }
+    })
+
+
+    if (!user) {
+      console.log('User not found for email:', validatedData.email)
       await logAudit(
-        AUDIT_ACTIONS.LOGIN,
+        AUDIT_ACTIONS.LOGIN_FAILED,
+        null,
+        validatedData.email,
+        'User not found',
+        req.ip,
+        req.get('User-Agent')
+      )
+      return res.status(401).json({ error: 'Invalid credentials' })
+    }
+
+    const isPasswordValid = await bcrypt.compare(validatedData.password, user.password)
+    console.log('Password valid:', isPasswordValid)
+
+    if (!isPasswordValid) {
+      console.log('Invalid password for user:', validatedData.email)
+      await logAudit(
+        AUDIT_ACTIONS.LOGIN_FAILED,
         user.id,
         user.email,
-        'Login failed - invalid password',
+        'Invalid password',
         req.ip,
         req.get('User-Agent')
-      );
-      
-      return res.status(401).json({
-        success: false,
-        message: 'Email atau password salah'
-      });
+      )
+      return res.status(401).json({ error: 'Invalid credentials' })
     }
+
 
     req.session.user = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role
-    };
+    }
 
-    await logAudit(
-      AUDIT_ACTIONS.LOGIN,
-      user.id,
-      user.email,
-      'Login successful',
-      req.ip,
-      req.get('User-Agent')
-    );
+    if (rememberMe) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days
+    } else {
+      req.session.cookie.expires = false
+    }
 
-    return res.status(200).json({
-      success: true,
-      message: 'Login berhasil',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
+
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err)
+        return res.status(500).json({ error: 'Session error' })
       }
-    });
+
+      // Audit log login
+      logAudit(
+        AUDIT_ACTIONS.LOGIN,
+        user.id,
+        user.email,
+        `User logged in successfully (Remember Me: ${rememberMe})`,
+        req.ip,
+        req.get('User-Agent')
+      )
+
+      console.log('Login successful for user:', user.email)
+
+      res.json({
+        message: 'Login successful',
+        user: req.session.user
+      })
+    })
 
   } catch (error) {
-    console.error('Login error:', error);
-    
-    await logAudit(
-      AUDIT_ACTIONS.LOGIN,
-      null,
-      req.body.email,
-      `Login error: ${error.message}`,
-      req.ip,
-      req.get('User-Agent')
-    );
-    
-    return res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
+    console.error('Login error:', error)
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors
+      })
+    }
+    res.status(500).json({ error: 'Internal server error' })
   }
-};
+}
 
 export const logout = (req, res) => {
-  // destroy
+  // delet
   if (req.session.user) {
     logAudit(
       AUDIT_ACTIONS.LOGOUT,
@@ -200,7 +205,7 @@ export const logout = (req, res) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to logout' });
     }
-    
+
     res.clearCookie('connect.sid');
     res.json({ message: 'Logout successful' });
   });
@@ -208,13 +213,13 @@ export const logout = (req, res) => {
 
 export const getAuthStatus = (req, res) => {
   if (req.session.user) {
-    res.json({ 
-      authenticated: true, 
-      user: req.session.user 
+    res.json({
+      authenticated: true,
+      user: req.session.user
     });
   } else {
-    res.json({ 
-      authenticated: false 
+    res.json({
+      authenticated: false
     });
   }
 };
@@ -223,11 +228,102 @@ export const getProfile = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.session.user.id },
-      select: { id: true, name: true, email: true, role: true, createdAt: true }
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        address: true,
+        city: true,
+        postalCode: true,
+        country: true,
+        createdAt: true
+      }
     });
-
-    res.json(user);
+    res.json(user)
   } catch (error) {
+    console.error('Error fetching profile:', error)
     res.status(500).json({ error: 'Failed to fetch user profile' });
   }
 };
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, phone, address, city, country, postalCode } = req.body
+
+    // Validate required fields
+    if (!name || !email || !phone || !address || !city || !country) {
+      return res.status(400).json({ error: 'All required fields must be filled' })
+    }
+
+    // Check if email is being changed and if it already exists
+    if (email !== req.session.user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email }
+      })
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already exists' })
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.session.user.id },
+      data: {
+        name,
+        email,
+        phone,
+        address,
+        city,
+        country,
+        postalCode
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        address: true,
+        city: true,
+        country: true,
+        postalCode: true
+      }
+    })
+
+    // Update session with new email if changed
+    if (email !== req.session.user.email) {
+      req.session.user.email = email
+    }
+    req.session.user.name = name
+
+    // Audit log
+    await logAudit(
+      AUDIT_ACTIONS.PROFILE_UPDATE,
+      user.id,
+      user.email,
+      'Profile updated successfully',
+      req.ip,
+      req.get('User-Agent')
+    )
+
+    res.json({
+      message: 'Profile updated successfully',
+      user
+    })
+  } catch (error) {
+    console.error('Error updating profile:', error)
+
+    await logAudit(
+      AUDIT_ACTIONS.PROFILE_UPDATE,
+      req.session.user.id,
+      req.session.user.email,
+      `Profile update failed: ${error.message}`,
+      req.ip,
+      req.get('User-Agent')
+    )
+
+    res.status(500).json({ error: 'Failed to update profile' })
+  }
+}

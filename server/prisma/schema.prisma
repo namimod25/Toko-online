@@ -1,26 +1,34 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String
-  role      Role     @default(CUSTOMER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+   id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String
+  password    String
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  postalCode  String?
+  role        Role     @default(CUSTOMER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@map("users")
   orders    Order[]
   cartItems CartItem[]
   Auditlog Auditlog[]
+  profile UserProfile?
+  userOrders UserOrder[]
+  wishlist Wishlist[]
+  carts Cart[]
 }
 
 model Product {
@@ -36,27 +44,47 @@ model Product {
   
   cartItems CartItem[]
   orderItems OrderItem[]
+
+  wishlists Wishlist[]
+}
+
+model Cart {
+  id Int @id @default(autoincrement())
+  userId Int @unique
+  items CartItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CartItem {
   id        Int      @id @default(autoincrement())
   quantity  Int
-  userId    Int
+  cartId    Int
   productId Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  user    User    @relation(fields: [userId], references: [id])
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
-  
-  @@unique([userId, productId])
+
+  @@unique([cartId, productId])
+  users User[]
 }
 
 model Order {
   id        Int         @id @default(autoincrement())
+  orderNumber String @unique
+  userId Int
   status    OrderStatus @default(PENDING)
   total     Float
-  userId    Int
+  shippingAddress String?
+  shippingCost Float @default(0)
+  paymentMethod String?
+  midtransOrderId String? @unique
+  midtransToken String?
+  paymentStatus String @default("pending")
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   
@@ -113,12 +141,12 @@ model passwordReset {
   id Int @id @default(autoincrement())
   email String 
   token String @unique
-  expireAt DateTime
+  expiresAt DateTime
   used Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("password reset")
+  @@map("password_reset")
 }
 
 model Auditlog {
@@ -131,16 +159,53 @@ model Auditlog {
   userAgent String?
   createdAt DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("audit_log")
 }
 
-model Captcha {
-  id String @id @default(cuid())
-  text String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+model UserProfile {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique
+  phone       String?
+  address     String?
+  city        String?
+  postalCode  String?
+  country     String?   @default("Indonesia")
+  avatar      String?
+  bio         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@map("captchas")
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("user_profiles")
+}
+
+model UserOrder {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  orderNumber String    @unique
+  total       Float
+  status      String
+  items       Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("user_orders")
+}
+
+model Wishlist {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  productId   Int
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@map("wishlists")
 }
