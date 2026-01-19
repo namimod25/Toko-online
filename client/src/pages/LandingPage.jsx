@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  Filter
+  Filter,
+  Eye
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -23,6 +24,7 @@ const LandingPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [expandedDescriptions, setExpandedDescriptions] = useState({})
   const { user } = useAuth()
 
   useEffect(() => {
@@ -45,17 +47,17 @@ const LandingPage = () => {
 
       const [productsResponse, slidesResponse, categoriesResponse] = await Promise.all([
         axios.get('/api/landing/featured-products'),
-        axios.get('/api/landing/hero-slides'), // Update endpoint
+        axios.get('/api/landing/hero-slides'), 
         axios.get('/api/landing/categories')
       ])
 
       setFeaturedProducts(productsResponse.data)
-      setHeroSlides(slidesResponse.data) // Data dari database
+      setHeroSlides(slidesResponse.data) 
       setCategories(categoriesResponse.data)
 
     } catch (error) {
       console.error('Error fetching landing data:', error)
-      // Fallback data
+      
       setFeaturedProducts(getMockProducts())
       setHeroSlides(getMockSlides())
       setCategories(getMockCategories())
@@ -79,6 +81,13 @@ const LandingPage = () => {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)
   }
 
+  const toggleDescription = (productId) => {
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }))
+  }
+
   const filteredProducts = featuredProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -86,28 +95,14 @@ const LandingPage = () => {
     return matchesSearch && matchesCategory
   })
 
-  const features = [
-    {
-      icon: <Truck className="h-8 w-8" />,
-      title: "Free Shipping",
-      description: "Free delivery for orders above Rp 500.000"
-    },
-    {
-      icon: <Shield className="h-8 w-8" />,
-      title: "Secure Payment",
-      description: "100% secure payment processing"
-    },
-    {
-      icon: <ShoppingBag className="h-8 w-8" />,
-      title: "Easy Returns",
-      description: "30-day return policy"
-    },
-    {
-      icon: <Star className="h-8 w-8" />,
-      title: "Quality Guarantee",
-      description: "Authentic products with warranty"
+  
+  const truncateText = (text, maxLength, productId) => {
+    const isExpanded = expandedDescriptions[productId]
+    if (isExpanded || text.length <= maxLength) {
+      return text
     }
-  ]
+    return text.substring(0, maxLength) + '...'
+  }
 
   return (
     <div className="min-h-screen">
@@ -177,29 +172,17 @@ const LandingPage = () => {
         )}
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="text-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition duration-200"
-              >
-                <div className="text-blue-600 mb-4 flex justify-center">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Featured Products Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Product yang disarankan
+            </h2>
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              Temukan pilihan elektronik dan gadget premium kami yang telah dipilih dengan cermat
+            </p>
+          </div>
 
           {/* Search and Filter */}
           <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-center">
@@ -238,67 +221,96 @@ const LandingPage = () => {
             <>
               {/* Products Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-lg shadow-md overflow-hidden border hover:shadow-xl transition duration-300 transform hover:-translate-y-1"
-                  >
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover transition duration-300 hover:scale-105"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/300x200?text=No+Image"
-                        }}
-                      />
-                      {product.stock === 0 && (
-                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                          Out of Stock
+                {filteredProducts.map((product) => {
+                  const isExpanded = expandedDescriptions[product.id]
+                  const displayDescription = truncateText(product.description, 100, product.id)
+                  const showReadMore = product.description.length > 100
+
+                  return (
+                    <div
+                      key={product.id}
+                      className="bg-white rounded-lg shadow-md overflow-hidden border hover:shadow-xl transition duration-300 transform hover:-translate-y-1 flex flex-col h-full"
+                    >
+                      <div className="relative h-48 overflow-hidden">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover transition duration-300 hover:scale-105"
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/300x200?text=No+Image"
+                          }}
+                        />
+                        {product.stock === 0 && (
+                          <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                            Out of Stock
+                          </div>
+                        )}
+                        {product.rating && (
+                          <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-semibold flex items-center">
+                            <Star className="h-3 w-3 mr-1" />
+                            {product.rating}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 flex-grow flex flex-col">
+                        <div className="mb-2">
+                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                            {product.category}
+                          </span>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="p-4">
-                      <div className="mb-2">
-                        <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                          {product.category}
-                        </span>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
+                          {product.name}
+                        </h3>
+
+                        <div className="flex-grow">
+                          <p className="text-gray-600 text-sm mb-2">
+                            {displayDescription}
+                          </p>
+                          {showReadMore && (
+                            <button
+                              onClick={() => toggleDescription(product.id)}
+                              className="text-blue-600 text-sm font-medium hover:text-blue-800 flex items-center transition duration-200"
+                            >
+                              {isExpanded ? 'Tampilkan Lebih Sedikit' : 'Lihat Selengkapnya'}
+                              <Eye className="h-3 w-3 ml-1" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex justify-between items-center">
+                            <span className="text-2xl font-bold text-green-600">
+                              {Rupiah(product.price)}
+                            </span>
+                            <Link
+                                to={`/products/${product.id}`}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium"
+                              >
+                               View Details →
+                              </Link>
+                          </div>
+                          {product.stock > 0 && product.stock < 5 && (
+                            <div className="mt-2 text-xs text-orange-600 font-medium">
+                              Hanya tersisa {product.stock} unit
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {product.name}
-                      </h3>
-
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                        {product.description}
-                      </p>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-2xl font-bold text-green-600">
-                          {Rupiah(product.price)}
-                        </span>
-                        <Link
-                          to={user ? "/products" : "/register"}
-                          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={product.stock === 0}
-                        >
-                          {product.stock === 0 ? 'Out of Stock' : 'View Details'}
-                        </Link>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {filteredProducts.length === 0 && (
                 <div className="text-center py-12">
                   <ShoppingBag className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    No products found
+                  produk tidak ditemukan
                   </h3>
                   <p className="text-gray-600">
-                    Try adjusting your search or filter criteria
+                   Coba sesuaikan kriteria pencarian atau filter Anda
                   </p>
                 </div>
               )}
@@ -327,7 +339,7 @@ const LandingPage = () => {
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
             Subscribe to our newsletter and get the latest updates on new products and exclusive offers
           </p>
-          <div className="flex flex-col sm:flexRow gap-4 justify-center max-w-md mx-auto">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
             <input
               type="email"
               placeholder="Enter your email"

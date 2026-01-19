@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { loginSchema } from '../../schemas/authSchema'
-// import axios from 'axios'
-// import Captcha from '../components/Captcha'
+import { Eye, EyeOff } from 'lucide-react';
+import Captcha from '../components/Captcha'
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +15,9 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
+  const [captchaId, setCaptchaId] = useState('')
+  const [captchaAnswer, setCaptchaAnswer] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0) // For forcing CAPTCHA refresh
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -39,38 +42,73 @@ const Login = () => {
     setShowPassword(!showPassword)
   }
 
+  const handleCaptchaChange = (id, answer) => {
+    setCaptchaId(id)
+    setCaptchaAnswer(answer)
+    // Clear CAPTCHA error when user changes answer
+    if (errors.captcha) {
+      setErrors(prev => ({
+        ...prev,
+        captcha: ''
+      }))
+    }
+  }
+
+  const refreshCaptcha = () => {
+    // Force CAPTCHA component to refresh by changing key
+    setCaptchaKey(prev => prev + 1)
+    setCaptchaId('')
+    setCaptchaAnswer('')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setMessage('')
 
     try {
+      // Prepare login data with CAPTCHA
+      const loginData = {
+        ...formData,
+        captchaId,
+        captchaAnswer
+      }
+
       // Validasi dengan schema
-      loginSchema.parse(formData)
+      loginSchema.parse(loginData)
       setErrors({})
 
-      // Login ke auth context
-      const result = await login(formData.email, formData.password)
+      // Call login dengan CAPTCHA data
+      const result = await login(formData.email, formData.password, captchaId, captchaAnswer)
 
       if (result.success) {
         setMessage('Login berhasil!')
-        // Redirect berdasarkan role atau ke halaman default
+
         if (result.user?.role === 'ADMIN') {
           navigate('/')
         } else {
           navigate('/admin/dashboard')
         }
       } else {
+        // Refresh CAPTCHA on failed login
+        refreshCaptcha()
         setErrors({ submit: result.error })
         setMessage(result.error || 'Login gagal')
       }
 
     } catch (error) {
+      // Refresh CAPTCHA on any error
+      refreshCaptcha()
+
       if (error.errors) {
-        //  validasi Zod
         const newErrors = {}
         error.errors.forEach(err => {
-          newErrors[err.path[0]] = err.message
+          // Map CAPTCHA errors to captcha field
+          if (err.path[0] === 'captchaId' || err.path[0] === 'captchaAnswer') {
+            newErrors.captcha = err.message
+          } else {
+            newErrors[err.path[0]] = err.message
+          }
         })
         setErrors(newErrors)
       } else {
@@ -187,6 +225,15 @@ const Login = () => {
                 )}
               </div>
 
+              {/* CAPTCHA Component */}
+              <div>
+                <Captcha
+                  key={captchaKey}
+                  onCaptchaChange={handleCaptchaChange}
+                  error={errors.captcha}
+                />
+              </div>
+
               {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -262,7 +309,7 @@ const Login = () => {
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
+                  <span className="px-2 bg-white text-gray-500">Tidak punya akun?</span>
                 </div>
               </div>
 
@@ -272,7 +319,7 @@ const Login = () => {
                   to="/register"
                   className="inline-flex items-center font-medium text-blue-600 hover:text-blue-500 transition duration-200 group"
                 >
-                  Create an account
+                  Daftar
                   <svg className="ml-1 w-4 h-4 transform group-hover:translate-x-1 transition duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>

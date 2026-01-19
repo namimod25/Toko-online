@@ -41,30 +41,38 @@ const Register = () => {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    console.log('Form submitted with data:', formData)
+    e.preventDefault();
+
+    const submitData = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      role: 'CUSTOMER'
+    };
+    // console.log('Form submitted with data:', submitData)
     setIsLoading(true)
 
     try {
-      // Validasi dengan Zod
-      registerSchema.parse(formData)
+
+      registerSchema.parse(submitData)
       setErrors({})
 
-      console.log('Validation passed, calling register function...')
+      // console.log('Validation passed, calling register function...')
 
-      // Panggil register function dari AuthContext
-      const result = await register(formData)
-      console.log('Register result:', result)
+      
+      const result = await register(submitData)
+     
 
       if (result.success) {
         console.log('Registration successful, navigating to home...')
         navigate('/')
       } else {
-        console.log('Registration failed with error:', result.error)
+        // console.log('Registration failed with error:', result.error)
         setErrors({ submit: result.error })
       }
     } catch (error) {
-      console.error('Validation error:', error)
+      
       if (error.errors) {
         const newErrors = {}
         error.errors.forEach(err => {
@@ -88,10 +96,10 @@ const Register = () => {
           <div className="bg-gradient-to-r from-green-600 to-blue-600 py-6 px-8">
             <div className="text-center">
               <h2 className="text-3xl font-bold text-white mb-2">
-                Create Account
+                Buat Akun
               </h2>
               <p className="text-blue-100 text-sm">
-                Join us and start shopping today
+                Bergabunglah dengan kami dan mulai berbelanja hari ini
               </p>
             </div>
           </div>
@@ -103,7 +111,7 @@ const Register = () => {
               {/* Name Input */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
+                  Nama Lengkap
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -116,7 +124,7 @@ const Register = () => {
                     autoComplete="name"
                     className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                       }`}
-                    placeholder="Enter your full name"
+                    placeholder="Masukkan nama lengkap Anda"
                     value={formData.name}
                     onChange={handleChange}
                     disabled={isLoading}
@@ -135,7 +143,7 @@ const Register = () => {
               {/* Email Input */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
+                  Alamat Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -148,7 +156,7 @@ const Register = () => {
                     autoComplete="email"
                     className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                       }`}
-                    placeholder="Enter your email"
+                    placeholder="Masukkan email Anda"
                     value={formData.email}
                     onChange={handleChange}
                     disabled={isLoading}
@@ -167,7 +175,7 @@ const Register = () => {
               {/* Password Input */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  Kata Sandi
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -180,7 +188,7 @@ const Register = () => {
                     autoComplete="new-password"
                     className={`block w-full pl-10 pr-10 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.password ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                       }`}
-                    placeholder="Create a password (min. 6 characters)"
+                    placeholder="Buat kata sandi (min. 6 karakter)"
                     value={formData.password}
                     onChange={handleChange}
                     disabled={isLoading}
@@ -211,7 +219,7 @@ const Register = () => {
               {/* Confirm Password Input */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
+                  Konfirmasi Kata Sandi
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -224,7 +232,7 @@ const Register = () => {
                     autoComplete="new-password"
                     className={`block w-full pl-10 pr-10 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${errors.confirmPassword ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                       }`}
-                    placeholder="Confirm your password"
+                    placeholder="Konfirmasi kata sandi Anda"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     disabled={isLoading}
@@ -281,10 +289,10 @@ const Register = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Creating account...
+                      Membuat akun...
                     </div>
                   ) : (
-                    'Create your account'
+                    'Buat akun Anda'
                   )}
                 </button>
               </div>
@@ -295,7 +303,7 @@ const Register = () => {
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Already have an account?</span>
+                  <span className="px-2 bg-white text-gray-500">Sudah memiliki akun?</span>
                 </div>
               </div>
 
@@ -305,7 +313,7 @@ const Register = () => {
                   to="/login"
                   className="inline-flex items-center font-medium text-blue-600 hover:text-blue-500 transition duration-200 group"
                 >
-                  Sign in to your account
+                  Masuk ke akun Anda
                   <svg className="ml-1 w-4 h-4 transform group-hover:translate-x-1 transition duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -318,7 +326,7 @@ const Register = () => {
           {/* Footer */}
           <div className="bg-gray-50 py-4 px-8 border-t border-gray-200">
             <div className="text-center text-sm text-gray-500">
-              © 2024 OnlineStore. All rights reserved.
+              © 2024 TokoOnline. Semua hak dilindungi.
             </div>
           </div>
         </div>
